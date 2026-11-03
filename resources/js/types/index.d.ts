@@ -13,3 +13,16 @@ export interface PageProps {
     flash: { success?: string | null; error?: string | null };
     [key: string]: unknown;
 }
+
+export interface Paginated<T> {
+    data: T[];
+    current_page: number;
+    per_page: number;
+    total: number;
+    last_page: number;
+}
+
+export interface Option<V extends string = string> {
+    value: V;
+    label: string;
+}

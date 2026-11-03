@@ -17,13 +17,12 @@ import type { PageProps } from "@/types";
 
 const { Header, Sider, Content } = Layout;
 
-// Các module sau sẽ lần lượt mở trong menu này.
 const MENU = [
     { key: "/", icon: <DashboardOutlined />, label: "Tổng quan" },
     {
         key: "/workbench",
         icon: <CalendarOutlined />,
-        label: "Ngày làm việc",
+        label: "Lịch làm việc",
         disabled: true,
     },
     { key: "/customers", icon: <TeamOutlined />, label: "Khách hàng" },
