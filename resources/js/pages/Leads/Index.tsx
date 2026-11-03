@@ -297,7 +297,13 @@ export default function Index({ leads, filters, stages, summary }: Props) {
                     >
                         Chỉnh sửa
                     </Button>
-
+                    <Button
+                        onClick={() =>
+                            router.visit(`/tasks?lead_id=${lead.id}`)
+                        }
+                    >
+                        Nhiệm vụ
+                    </Button>
                     {lead.kind === "lead" && lead.stage === "qualified" && (
                         <Popconfirm
                             title="Chuyển thành Cơ hội?"

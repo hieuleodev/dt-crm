@@ -481,6 +481,14 @@ export default function Show() {
                 }
                 extra={
                     <>
+                        <Button
+                            onClick={() =>
+                                router.visit(`/tasks?customer_id=${c.id}`)
+                            }
+                        >
+                            Nhiệm vụ
+                        </Button>
+
                         {can.reassign && (
                             <Button
                                 icon={<SwapOutlined />}
