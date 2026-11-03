@@ -1,9 +1,324 @@
-@import 'tailwindcss';
+.crm-shell {
+    --crm-font:
+        "Be Vietnam Pro", system-ui, -apple-system, "Segoe UI", sans-serif;
 
-@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
-@source '../../storage/framework/views/*.php';
+    --crm-text: #1f1f1f;
+    --crm-text-muted: #595959;
+    --crm-surface: #fcfcfa;
+    --crm-surface-panel: #ffffff;
+    --crm-surface-subtle: #f8f5ee;
+    --crm-border: #deded8;
 
-@theme {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
-        'Segoe UI Symbol', 'Noto Color Emoji';
+    --crm-accent: #ff4800;
+    --crm-accent-text: #b83200;
+    --crm-accent-hover: #942900;
+    --crm-on-accent: #ffffff;
+    --crm-focus: #1f1f1f;
+    --crm-disabled: #666666;
+
+    --crm-space-1: 4px;
+    --crm-space-2: 8px;
+    --crm-space-3: 12px;
+    --crm-space-4: 16px;
+    --crm-space-5: 24px;
+    --crm-space-6: 32px;
+    --crm-space-7: 48px;
+
+    --crm-radius-sm: 4px;
+    --crm-radius-md: 8px;
+    --crm-radius-pill: 50px;
+
+    --crm-header-height: 64px;
+    --crm-control-height: 44px;
+    --crm-content-width: 1440px;
+
+    --crm-motion: 150ms;
+    --crm-shadow: 0 2px 4px rgb(33 51 67 / 12%);
+
+    min-height: 100vh;
+    color: var(--crm-text);
+    background: var(--crm-surface);
+    font-family: var(--crm-font);
+    font-size: 14px;
+    line-height: 1.5715;
+}
+
+.crm-shell .crm-sidebar {
+    background: var(--crm-surface-panel);
+    border-inline-end: 1px solid var(--crm-border);
+}
+
+.crm-brand {
+    height: var(--crm-header-height);
+    display: flex;
+    align-items: center;
+    gap: var(--crm-space-3);
+    padding-inline: var(--crm-space-5);
+    border-bottom: 1px solid var(--crm-border);
+}
+
+.crm-brand__mark {
+    width: 36px;
+    height: 36px;
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    border-radius: var(--crm-radius-md);
+    background: var(--crm-accent);
+    color: var(--crm-text);
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.crm-brand__name {
+    color: var(--crm-text);
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1.25;
+}
+
+.crm-brand__caption {
+    color: var(--crm-text-muted);
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.crm-nav {
+    padding: var(--crm-space-4) var(--crm-space-3);
+}
+
+.crm-nav__label {
+    margin: 0 0 var(--crm-space-2);
+    padding-inline: var(--crm-space-3);
+    color: var(--crm-text-muted);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.crm-shell .crm-menu {
+    border-inline-end: 0;
+    background: transparent;
+    font-family: var(--crm-font);
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.crm-shell .crm-menu .ant-menu-item {
+    width: 100%;
+    min-height: var(--crm-control-height);
+    height: auto;
+    margin: 0 0 var(--crm-space-1);
+    padding-block: var(--crm-space-2);
+    border-radius: var(--crm-radius-md);
+    color: var(--crm-text);
+    line-height: 1.5;
+    transition:
+        background-color var(--crm-motion),
+        color var(--crm-motion);
+}
+
+.crm-menu .ant-menu-title-content {
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+.crm-shell .crm-menu .ant-menu-item:not(.ant-menu-item-disabled):hover {
+    background: var(--crm-surface-subtle);
+    color: var(--crm-text);
+}
+
+.crm-shell .crm-menu .ant-menu-item-selected {
+    background: var(--crm-surface-subtle);
+    color: var(--crm-accent-text);
+    font-weight: 700;
+    box-shadow: inset 3px 0 0 var(--crm-accent);
+}
+
+.crm-shell .crm-menu .ant-menu-item:not(.ant-menu-item-disabled):active {
+    background: var(--crm-border);
+}
+
+.crm-shell .crm-menu .ant-menu-item-disabled {
+    color: var(--crm-disabled);
+    cursor: not-allowed;
+}
+
+.crm-shell .crm-main {
+    min-width: 0;
+    background: transparent;
+}
+
+.crm-shell .crm-header {
+    height: var(--crm-header-height);
+    padding-inline: var(--crm-space-6);
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--crm-space-4);
+    background: var(--crm-surface-panel);
+    border-bottom: 1px solid var(--crm-border);
+    line-height: normal;
+}
+
+.crm-account {
+    min-width: 0;
+    min-height: var(--crm-control-height);
+    max-width: 100%;
+    display: flex;
+    align-items: center;
+    gap: var(--crm-space-3);
+    padding: var(--crm-space-1) var(--crm-space-3);
+    border: 1px solid transparent;
+    border-radius: var(--crm-radius-pill);
+    background: transparent;
+    color: var(--crm-text);
+    font: inherit;
+    text-align: start;
+    cursor: pointer;
+    transition:
+        background-color var(--crm-motion),
+        border-color var(--crm-motion);
+}
+
+.crm-account:hover {
+    background: var(--crm-surface-subtle);
+    border-color: var(--crm-border);
+}
+
+.crm-account:active,
+.crm-account[aria-expanded="true"] {
+    background: var(--crm-surface-subtle);
+    border-color: var(--crm-accent-text);
+}
+
+.crm-account:disabled {
+    color: var(--crm-disabled);
+    cursor: not-allowed;
+}
+
+.crm-account__avatar {
+    flex-shrink: 0;
+    background: var(--crm-surface-subtle);
+    color: var(--crm-text);
+    border: 1px solid var(--crm-border);
+}
+
+.crm-account__details {
+    min-width: 0;
+    max-width: 200px;
+    display: flex;
+    flex-direction: column;
+}
+
+.crm-account__name,
+.crm-account__role {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.crm-account__name {
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.4;
+}
+
+.crm-account__role {
+    color: var(--crm-text-muted);
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+.crm-shell .crm-content {
+    min-width: 0;
+    padding: var(--crm-space-6);
+}
+
+.crm-content__inner {
+    width: 100%;
+    max-width: var(--crm-content-width);
+    margin-inline: auto;
+    overflow-wrap: anywhere;
+}
+
+.crm-shell .crm-account:focus-visible,
+.crm-shell .crm-menu .ant-menu-item:focus-visible,
+.crm-shell .ant-layout-sider-zero-width-trigger:focus-visible,
+.crm-account-popup .ant-dropdown-menu-item:focus-visible {
+    outline: 2px solid var(--crm-focus, #1f1f1f);
+    outline-offset: 2px;
+}
+
+.crm-account-popup {
+    font-family: "Be Vietnam Pro", system-ui, sans-serif;
+}
+
+.crm-account-popup .ant-dropdown-menu {
+    min-width: 192px;
+    padding: 8px;
+    border-radius: 8px;
+}
+
+.crm-account-popup .ant-dropdown-menu-item {
+    min-height: 44px;
+    padding: 12px 16px;
+}
+
+.crm-shell .crm-sidebar.ant-layout-sider-zero-width {
+    border-inline-end: 0;
+}
+
+.crm-shell .ant-layout-sider-zero-width-trigger {
+    top: calc((var(--crm-header-height) - 40px) / 2);
+    inset-inline-end: -52px;
+    width: 40px;
+    height: 40px;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--crm-border);
+    border-radius: var(--crm-radius-md);
+    background: var(--crm-surface-panel);
+    color: var(--crm-text);
+}
+
+@media (max-width: 991px) {
+    .crm-shell .crm-header {
+        padding-inline-start: 72px;
+    }
+
+    .crm-shell .crm-sidebar {
+        position: fixed;
+        inset-block: 0;
+        inset-inline-start: 0;
+        z-index: 100;
+        height: 100vh;
+    }
+
+    .crm-shell .crm-sidebar:not(.ant-layout-sider-zero-width) {
+        box-shadow: 0 0 0 100vmax rgb(31 31 31 / 35%);
+    }
+}
+
+@media (max-width: 767px) {
+    .crm-shell .crm-header {
+        padding-inline: var(--crm-space-4);
+    }
+
+    .crm-shell .crm-content {
+        padding: var(--crm-space-4);
+    }
+
+    .crm-account__details {
+        max-width: 128px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .crm-shell *,
+    .crm-account-popup * {
+        transition: none !important;
+        animation: none !important;
+    }
 }

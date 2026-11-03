@@ -4,6 +4,8 @@ import { App as AntApp, ConfigProvider } from "antd";
 import viVN from "antd/locale/vi_VN";
 import dayjs from "dayjs";
 import "dayjs/locale/vi";
+import { theme } from "@/theme";
+import "../css/app.css";
 
 dayjs.locale("vi");
 
@@ -15,10 +17,7 @@ createInertiaApp({
     },
     setup({ el, App, props }) {
         createRoot(el).render(
-            <ConfigProvider
-                locale={viVN}
-                theme={{ token: { colorPrimary: "#1d4ed8", borderRadius: 8 } }}
-            >
+            <ConfigProvider locale={viVN} theme={theme}>
                 <AntApp>
                     <App {...props} />
                 </AntApp>

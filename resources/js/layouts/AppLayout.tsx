@@ -1,6 +1,6 @@
-import { ReactNode, useEffect } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { router, usePage } from "@inertiajs/react";
-import { App, Avatar, Dropdown, Layout, Menu, Space, Typography } from "antd";
+import { App, Avatar, Dropdown, Layout, Menu } from "antd";
 import {
     BarChartOutlined,
     CalendarOutlined,
@@ -17,6 +17,7 @@ import type { PageProps } from "@/types";
 
 const { Header, Sider, Content } = Layout;
 
+// Các module sau sẽ lần lượt mở trong menu này.
 const MENU = [
     { key: "/", icon: <DashboardOutlined />, label: "Tổng quan" },
     {
@@ -25,17 +26,12 @@ const MENU = [
         label: "Ngày làm việc",
         disabled: true,
     },
-    {
-        key: "/customers",
-        icon: <TeamOutlined />,
-        label: "Khách hàng",
-        disabled: true,
-    },
+    { key: "/customers", icon: <TeamOutlined />, label: "Khách hàng" },
     {
         key: "/leads",
         icon: <FunnelPlotOutlined />,
         label: "Lead & Cơ hội",
-        disabled: true,
+        disabled: false,
     },
     {
         key: "/tickets",
@@ -81,96 +77,48 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     ).map((m) => m.key);
 
     return (
-        <Layout
-            style={{
-                minHeight: "100vh",
-                background: "#f5f7fa",
-            }}
-        >
+        <Layout className="crm-shell">
             <Sider
+                className="crm-sidebar"
                 breakpoint="lg"
                 collapsedWidth={0}
                 theme="light"
-                width={248}
-                style={{
-                    borderRight: "1px solid #e8edf3",
-                    background: "#fff",
-                }}
+                width={256}
             >
-                <div
-                    style={{
-                        height: 72,
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 12,
-                        paddingInline: 24,
-                        borderBottom: "1px solid #e8edf3",
-                    }}
-                >
-                    <div
-                        style={{
-                            width: 36,
-                            height: 36,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            flexShrink: 0,
-                            borderRadius: 10,
-                            background: "#1d4ed8",
-                            color: "#fff",
-                            fontSize: 13,
-                            fontWeight: 700,
-                        }}
-                    >
+                <div className="crm-brand">
+                    <span className="crm-brand__mark" aria-hidden="true">
                         D&T
-                    </div>
+                    </span>
 
-                    <Typography.Text
-                        strong
-                        style={{
-                            color: "#172b4d",
-                            fontSize: 18,
-                            letterSpacing: "-0.4px",
-                        }}
-                    >
-                        D&T CRM
-                    </Typography.Text>
+                    <div>
+                        <div className="crm-brand__name">D&T CRM</div>
+                        <div className="crm-brand__caption">
+                            Quản lý khách hàng
+                        </div>
+                    </div>
                 </div>
 
-                <div style={{ padding: "20px 12px" }}>
+                <nav className="crm-nav" aria-label="Điều hướng chính">
+                    <p className="crm-nav__label">Không gian làm việc</p>
+
                     <Menu
+                        className="crm-menu"
                         mode="inline"
                         selectedKeys={selected.length ? selected : ["/"]}
                         items={MENU.filter(
                             (m) => !m.managerOnly || isManager,
                         ).map(({ managerOnly, ...item }) => item)}
                         onClick={({ key }) => router.visit(key)}
-                        style={{
-                            borderInlineEnd: 0,
-                            background: "transparent",
-                            fontSize: 14,
-                            fontWeight: 500,
-                        }}
                     />
-                </div>
+                </nav>
             </Sider>
 
-            <Layout style={{ minWidth: 0, background: "transparent" }}>
-                <Header
-                    style={{
-                        height: 72,
-                        lineHeight: "normal",
-                        background: "#fff",
-                        borderBottom: "1px solid #e8edf3",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "flex-end",
-                        paddingInline: "clamp(16px, 3vw, 32px)",
-                    }}
-                >
+            <Layout className="crm-main">
+                <Header className="crm-header">
                     <Dropdown
                         trigger={["click"]}
                         placement="bottomRight"
+                        classNames={{ root: "crm-account-popup" }}
                         menu={{
                             items: [
                                 {
@@ -183,77 +131,38 @@ export default function AppLayout({ children }: { children: ReactNode }) {
                                 key === "logout" && router.post("/logout"),
                         }}
                     >
-                        <Space
-                            size={12}
-                            style={{
-                                cursor: "pointer",
-                                padding: "8px 12px",
-                                border: "1px solid #e8edf3",
-                                borderRadius: 12,
-                                background: "#fff",
-                            }}
+                        <button
+                            type="button"
+                            className="crm-account"
+                            aria-label={`Mở menu tài khoản ${
+                                auth.user?.name ?? ""
+                            }`}
                         >
                             <Avatar
-                                size={36}
+                                className="crm-account__avatar"
+                                size={40}
                                 icon={<UserOutlined />}
-                                style={{
-                                    background: "#eff6ff",
-                                    color: "#1d4ed8",
-                                    border: "1px solid #dbeafe",
-                                }}
+                                aria-hidden="true"
                             />
 
-                            <div
-                                style={{
-                                    display: "flex",
-                                    flexDirection: "column",
-                                    gap: 3,
-                                    maxWidth: 200,
-                                    minWidth: 0,
-                                }}
-                            >
-                                <Typography.Text
-                                    strong
-                                    ellipsis
-                                    style={{
-                                        color: "#172b4d",
-                                        fontSize: 14,
-                                        lineHeight: "20px",
-                                    }}
+                            <span className="crm-account__details">
+                                <span
+                                    className="crm-account__name"
+                                    title={auth.user?.name}
                                 >
                                     {auth.user?.name}
-                                </Typography.Text>
+                                </span>
 
-                                <Typography.Text
-                                    type="secondary"
-                                    ellipsis
-                                    style={{
-                                        fontSize: 12,
-                                        lineHeight: "16px",
-                                    }}
-                                >
+                                <span className="crm-account__role">
                                     {auth.user?.roleLabel}
-                                </Typography.Text>
-                            </div>
-                        </Space>
+                                </span>
+                            </span>
+                        </button>
                     </Dropdown>
                 </Header>
 
-                <Content
-                    style={{
-                        minWidth: 0,
-                        padding: "clamp(16px, 3vw, 32px)",
-                    }}
-                >
-                    <div
-                        style={{
-                            width: "100%",
-                            maxWidth: 1440,
-                            marginInline: "auto",
-                        }}
-                    >
-                        {children}
-                    </div>
+                <Content className="crm-content">
+                    <main className="crm-content__inner">{children}</main>
                 </Content>
             </Layout>
         </Layout>

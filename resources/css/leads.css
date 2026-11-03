@@ -1,0 +1,158 @@
+.leads-page {
+    --lead-text: #1f1f1f;
+    --lead-muted: #60605b;
+    --lead-panel: #ffffff;
+    --lead-subtle: #f8f5ee;
+    --lead-border: #e5e5df;
+
+    --lead-radius: 8px;
+    --lead-space-sm: 8px;
+    --lead-space-md: 16px;
+    --lead-space-lg: 24px;
+
+    display: flex;
+    flex-direction: column;
+    gap: var(--lead-space-lg);
+    color: var(--lead-text);
+}
+
+.leads-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--lead-space-md);
+}
+
+.leads-heading .ant-typography {
+    margin-top: 0;
+}
+
+.leads-heading h2.ant-typography {
+    margin-bottom: var(--lead-space-sm);
+}
+
+.leads-heading .ant-typography:last-child {
+    margin-bottom: 0;
+}
+
+.leads-page .leads-stat,
+.leads-page .leads-list {
+    height: 100%;
+    border: 1px solid var(--lead-border);
+    border-radius: var(--lead-radius);
+    background: var(--lead-panel);
+    box-shadow: none;
+}
+
+.leads-stat .ant-statistic-content {
+    font-size: 24px;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+
+.leads-filters {
+    display: grid;
+    grid-template-columns:
+        minmax(220px, 1fr)
+        minmax(140px, 180px)
+        minmax(160px, 200px)
+        auto
+        auto;
+    gap: var(--lead-space-sm);
+    align-items: center;
+}
+
+.leads-filters > * {
+    min-width: 0;
+}
+
+.leads-filters .ant-select {
+    width: 100%;
+}
+
+.leads-hint {
+    margin: var(--lead-space-md) 0;
+    color: var(--lead-muted);
+    font-size: 14px;
+}
+
+.leads-contact {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--lead-space-sm);
+    overflow-wrap: anywhere;
+}
+
+.leads-page .leads-stage {
+    max-width: 100%;
+    margin-inline-end: 0;
+    border-color: var(--lead-border);
+    border-radius: var(--lead-radius);
+    background: var(--lead-subtle);
+    color: var(--lead-text);
+    white-space: normal;
+}
+
+.leads-stage--qualified,
+.leads-stage--won {
+    font-weight: 700;
+}
+
+.leads-page .ant-table-thead > tr > th {
+    background: var(--lead-subtle);
+    color: var(--lead-text);
+    font-weight: 600;
+}
+
+.leads-page .ant-table-cell {
+    vertical-align: top;
+}
+
+.leads-page .ant-btn {
+    min-height: 44px;
+}
+
+.leads-page .ant-input,
+.leads-page .ant-input-affix-wrapper,
+.leads-page .ant-select {
+    min-height: 44px;
+}
+
+.leads-page button:focus-visible,
+.leads-page input:focus-visible {
+    outline: 2px solid var(--lead-text);
+    outline-offset: 2px;
+}
+
+.leads-form-alert {
+    margin-bottom: 16px;
+}
+
+.leads-value-input {
+    width: 100%;
+}
+
+@media (max-width: 1199px) {
+    .leads-filters {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .leads-filters > :first-child {
+        grid-column: 1 / -1;
+    }
+}
+
+@media (max-width: 575px) {
+    .leads-heading {
+        flex-direction: column;
+    }
+
+    .leads-heading > .ant-btn {
+        width: 100%;
+    }
+
+    .leads-filters {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
