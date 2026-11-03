@@ -9,6 +9,7 @@ use App\Http\Controllers\Customer\CustomerController;
 use App\Http\Controllers\Customer\PlantController;
 use App\Http\Controllers\Care\TaskController;
 use App\Http\Controllers\Customer\ContactController;
+use App\Http\Controllers\Care\WorkbenchController;
 
 Route::middleware('guest')->group(function () {
     Route::get('/login', [LoginController::class, 'create'])->name('login');
@@ -35,4 +36,6 @@ Route::middleware('auth')->group(function () {
     Route::post('/tasks', [TaskController::class, 'store'])->name('tasks.store');
     Route::put('/tasks/{task}', [TaskController::class, 'update'])->whereNumber('task')->name('tasks.update');
     Route::patch('/tasks/{task}/status', [TaskController::class, 'status'])->whereNumber('task')->name('tasks.status');
+    //today tasks
+    Route::get('/workbench', WorkbenchController::class)->name('workbench');
 });
