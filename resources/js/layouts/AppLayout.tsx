@@ -12,6 +12,7 @@ import {
     TeamOutlined,
     UploadOutlined,
     UserOutlined,
+    CheckSquareOutlined,
 } from "@ant-design/icons";
 import type { PageProps } from "@/types";
 
@@ -22,8 +23,8 @@ const MENU = [
     {
         key: "/workbench",
         icon: <CalendarOutlined />,
-        label: "Lịch làm việc",
-        disabled: true,
+        label: "Công việc hôm nay",
+        disabled: false,
     },
     { key: "/customers", icon: <TeamOutlined />, label: "Khách hàng" },
     {
@@ -33,29 +34,35 @@ const MENU = [
         disabled: false,
     },
     {
+        key: "/tasks",
+        icon: <CheckSquareOutlined />,
+        label: "Nhiệm vụ",
+        disabled: false,
+    },
+    {
         key: "/tickets",
         icon: <CustomerServiceOutlined />,
         label: "Khiếu nại",
-        disabled: true,
+        disabled: false,
     },
     {
         key: "/reports",
         icon: <BarChartOutlined />,
         label: "Báo cáo",
-        disabled: true,
+        disabled: false,
     },
     {
         key: "/imports",
         icon: <UploadOutlined />,
         label: "Nhập dữ liệu",
-        disabled: true,
+        disabled: false,
         managerOnly: true,
     },
     {
         key: "/settings",
         icon: <SettingOutlined />,
         label: "Cài đặt",
-        disabled: true,
+        disabled: false,
         managerOnly: true,
     },
 ];

@@ -180,7 +180,6 @@ export default function Index() {
             <Head title="Khách hàng" />
             <PageHeader
                 title="Khách hàng"
-                subtitle="Toàn bộ khách hàng tập trung một nơi – tìm theo tên, mã KH, MST, số điện thoại hoặc tên người liên hệ."
                 extra={
                     <Button
                         type="primary"

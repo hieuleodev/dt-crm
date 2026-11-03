@@ -5,7 +5,6 @@ namespace App\Domain\Customer\Models;
 use App\Domain\Customer\Enums\Attitude;
 use App\Domain\Customer\Enums\BuyingRole;
 use App\Domain\Customer\Enums\ContactChannel;
-use App\Domain\Customer\Enums\Influence;
 use App\Domain\Shared\Concerns\Auditable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -29,7 +28,7 @@ class Contact extends Model
     {
         return [
             'buying_role' => BuyingRole::class,
-            'influence' => Influence::class,
+            'influence' => 'string',
             'attitude' => Attitude::class,
             'preferred_channel' => ContactChannel::class,
             'birthday' => 'date',

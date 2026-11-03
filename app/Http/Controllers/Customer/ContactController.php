@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Customer;
+namespace App\Http\Controllers\Customers;
 
 use App\Domain\Customer\Actions\DataCompleteness;
 use App\Domain\Customer\Models\Contact;

@@ -17,8 +17,6 @@ class CustomerOptions
             'sourceChannels' => Enums\SourceChannel::options(),
             'procurementMethods' => Enums\ProcurementMethod::options(),
             'buyingRoles' => Enums\BuyingRole::options(),
-            'influences' => Enums\Influence::options(),
-            'attitudes' => Enums\Attitude::options(),
             'contactChannels' => Enums\ContactChannel::options(),
             'certificates' => array_map(fn ($v) => ['value' => $v, 'label' => $v], [
                 'ISO 9001', 'ISO 14001', 'ISO 45001', 'CO (xuất xứ)', 'CQ (chất lượng)', 'Test report', 'SDS / MSDS', 'Hồ sơ năng lực',

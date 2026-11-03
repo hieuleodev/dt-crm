@@ -8,7 +8,9 @@ use App\Domain\Customer\Models\Customer;
 
 class DataCompleteness
 {
-    @return array{score: int, missing: list<string>} 
+    /**
+     *@return array{score: int, missing: list<string>} 
+     */
     public static function evaluate(Customer $customer): array
     {
         $contacts = $customer->relationLoaded('contacts') ? $customer->contacts : $customer->contacts()->get();

@@ -146,8 +146,6 @@ class CustomerController extends Controller
                 ->map(fn ($c) => [
                     ...$c->only('id', 'full_name', 'title', 'department', 'phone', 'email', 'zalo', 'language', 'is_primary', 'marketing_opt_out', 'notes', 'plant_id'),
                     'buying_role' => $c->buying_role?->value,
-                    'influence' => $c->influence?->value,
-                    'attitude' => $c->attitude?->value,
                     'preferred_channel' => $c->preferred_channel?->value,
                     'birthday' => $c->birthday?->toDateString(),
                     'left_at' => $c->left_at?->toDateString(),

@@ -13,7 +13,9 @@ class FindDuplicateCustomers
         'viet nam', 'vietnam', 'vn', 'co ltd', 'ltd', 'limited', 'company', 'inc', 'jsc', 'corporation', 'corp',
     ];
 
-     @return list<array{id: int, code: string, name: string, owner: ?string, reasons: list<string>}> 
+    /**
+     * @return list<array{id: int, code: string, name: string, owner: ?string, reasons: list<string>}> 
+     */
     public function handle(?string $taxCode, ?string $name, ?string $phone, ?string $email, ?int $exceptId = null): array
     {
         $found = [];
