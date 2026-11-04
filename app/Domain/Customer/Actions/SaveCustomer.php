@@ -16,14 +16,22 @@ class SaveCustomer
             $tags = $data['tags'] ?? null;
             unset($data['tags']);
 
-            $data['tax_code'] = Customer::normalizeTaxCode($data['tax_code'] ?? null);
+            if (array_key_exists('tax_code', $data)) {
+                $data['tax_code'] = Customer::normalizeTaxCode(
+                    $data['tax_code'],
+                );
+            }            
             $isNew = $customer === null;
             $customer ??= new Customer(['created_by' => $actor->id]);
 
             if ($isNew) {
-                $data['code'] = filled($data['code'] ?? null) ? $data['code'] : $this->nextCode();
-                $data['owner_id'] ??= $actor->id;
-            } else {
+            $data['code'] = filled($data['code'] ?? null)
+                ? $data['code']
+                : $this->nextCode();
+
+            $data['owner_id'] ??= $actor->id;
+            $data['lifecycle_stage'] ??= 'prospect';
+        } else {
                 unset($data['owner_id']); 
                 if (blank($data['code'] ?? null)) {
                     unset($data['code']); 

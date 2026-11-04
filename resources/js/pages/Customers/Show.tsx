@@ -22,7 +22,6 @@ import {
 } from "@ant-design/icons";
 import AppLayout from "@/layouts/AppLayout";
 import PageHeader from "@/components/common/PageHeader";
-import CompletenessBadge from "@/components/customer/CompletenessBadge";
 import ContactModal from "@/components/customer/ContactModal";
 import PlantModal from "@/components/customer/PlantModal";
 import ReassignModal from "@/components/customer/ReassignModal";
@@ -44,6 +43,7 @@ import type {
     OwnerOption,
     PlantItem,
 } from "@/types/customer";
+import CustomerNotes from "@/components/customer/CustomerNotes";
 
 interface Props extends PageProps {
     customer: CustomerDetail;
@@ -84,11 +84,14 @@ const FIELD_LABELS: Record<string, string> = {
     payment_terms: "Thanh toán",
     notes: "Ghi chú",
     marketing_consent: "Đồng ý nhận tin",
+    body: "Nội dung ghi chú",
+    task_id: "Nhiệm vụ nhắc việc",
 };
 const SUBJECTS: Record<string, string> = {
     Customer: "Khách hàng",
     Contact: "Người liên hệ",
     Plant: "Nhà máy",
+    CustomerNote: "Ghi chú khách hàng",
 };
 const EVENTS: Record<string, { label: string; color: string }> = {
     created: { label: "Tạo mới", color: "green" },
@@ -115,8 +118,70 @@ export default function Show() {
         options,
         owners,
         can,
+        auth,
     } = usePage<Props>().props;
-
+    const customerDetails: DescriptionsProps["items"] = [
+        {
+            key: "name",
+            label: "Tên khách hàng",
+            children: c.name,
+        },
+        {
+            key: "company_type",
+            label: "Loại khách",
+            children: labelOf(options.companyTypes, c.company_type),
+        },
+        {
+            key: "email",
+            label: "Email",
+            children: c.email ? (
+                <a href={`mailto:${c.email}`}>{c.email}</a>
+            ) : (
+                "—"
+            ),
+        },
+        {
+            key: "phone",
+            label: "Số điện thoại",
+            children: c.phone ? <a href={`tel:${c.phone}`}>{c.phone}</a> : "—",
+        },
+        {
+            key: "industry",
+            label: "Ngành nghề",
+            children: labelOf(options.industries, c.industry),
+        },
+        {
+            key: "status",
+            label: "Trạng thái",
+            children: labelOf(options.statuses, c.status),
+        },
+        {
+            key: "address",
+            label: "Địa chỉ",
+            span: "filled",
+            children: c.address || "—",
+        },
+        {
+            key: "notes",
+            label: "Mô tả",
+            span: "filled",
+            children: (
+                <div className="crm-customer-description">
+                    {c.notes || "Chưa có mô tả."}
+                </div>
+            ),
+        },
+        {
+            key: "created_at",
+            label: "Ngày giờ tạo",
+            children: formatDateTime(c.created_at),
+        },
+        {
+            key: "creator",
+            label: "Người tạo",
+            children: c.creator || "Không có thông tin",
+        },
+    ];
     const ENUM_FIELDS: Record<string, CustomerOptions[keyof CustomerOptions]> =
         {
             company_type: options.companyTypes,
@@ -154,72 +219,23 @@ export default function Show() {
     });
 
     const general: DescriptionsProps["items"] = [
-        field("Mã số thuế", c.tax_code),
-        field("Loại hình", labelOf(options.companyTypes, c.company_type)),
+        field("Tên khách hàng", c.name),
+        field("Email", c.email || "—"),
+        field("Số điện thoại", c.phone || "—"),
+        field("Loại khách", labelOf(options.companyTypes, c.company_type)),
+        field("Ngành nghề", labelOf(options.industries, c.industry)),
+        field("Trạng thái", labelOf(options.statuses, c.status)),
+        field("Địa chỉ", c.address || "—", true),
         field(
-            "Tập đoàn mẹ",
-            [c.parent_group, c.parent_country].filter(Boolean).join(" – ") ||
-                "—",
-        ),
-        field("Điện thoại", c.phone),
-        field("Email", c.email),
-        field("Website", c.website),
-        field("Địa chỉ", c.address, true),
-        field(
-            "KCN / Tỉnh",
-            [c.industrial_zone, c.province].filter(Boolean).join(", ") || "—",
-        ),
-    ];
-    const potential: DescriptionsProps["items"] = [
-        field("Ngành", labelOf(options.industries, c.industry)),
-        field("Sản phẩm chính", c.industry_detail),
-        field("Số công nhân", formatNumber(c.employee_count)),
-        field("Tiềm năng PPE / năm", formatVnd(c.ppe_budget_estimate)),
-        field("Nhà cung cấp hiện tại", c.current_suppliers, true),
-    ];
-    const commercial: DescriptionsProps["items"] = [
-        field(
-            "Kênh khách tìm đến",
-            labelOf(options.sourceChannels, c.source_channel),
-        ),
-        field("Người giới thiệu", c.referred_by),
-        field(
-            "Cách mua hàng",
-            labelOf(options.procurementMethods, c.procurement_method),
-        ),
-        field("Điều khoản thanh toán", c.payment_terms),
-        field("Hạn mức công nợ", formatVnd(c.credit_limit)),
-        field(
-            "Đăng ký nhà cung cấp",
-            c.vendor_registered
-                ? `Đã duyệt ${formatDate(c.vendor_registered_at)}`
-                : "Chưa",
-        ),
-        field(
-            "Chứng từ yêu cầu",
-            c.required_certificates.length
-                ? c.required_certificates.map((x) => <Tag key={x}>{x}</Tag>)
-                : "—",
-            true,
-        ),
-        field(
-            "Đồng ý nhận tin",
-            c.marketing_consent
-                ? `Có (${c.consent_channels.join(", ") || "chưa chọn kênh"}) – từ ${formatDate(c.consent_at)}`
-                : "Chưa",
-            true,
-        ),
-        field(
-            "Ghi chú",
+            "Mô tả",
             c.notes ? (
-                <span style={{ whiteSpace: "pre-line" }}>{c.notes}</span>
+                <div className="crm-customer-description">{c.notes}</div>
             ) : (
                 "—"
             ),
             true,
         ),
     ];
-
     const contactColumns: TableProps<ContactItem>["columns"] = [
         {
             title: "Họ tên",
@@ -443,42 +459,6 @@ export default function Show() {
             <PageHeader
                 back={{ href: "/customers", label: "Danh sách khách hàng" }}
                 title={c.name}
-                subtitle={
-                    <div className="crm-badges">
-                        <span>{c.code}</span>
-                        <Tag color={stageColor(c.lifecycle_stage)}>
-                            {labelOf(
-                                options.lifecycleStages,
-                                c.lifecycle_stage,
-                            )}
-                        </Tag>
-                        {c.tier && (
-                            <Tag
-                                color={
-                                    c.tier === "A"
-                                        ? "volcano"
-                                        : c.tier === "B"
-                                          ? "gold"
-                                          : "default"
-                                }
-                            >
-                                Hạng {c.tier}
-                            </Tag>
-                        )}
-                        {c.status !== "active" && (
-                            <Tag color="red">
-                                {labelOf(options.statuses, c.status)}
-                            </Tag>
-                        )}
-                        {c.tags.map((t) => (
-                            <Tag key={t}>{t}</Tag>
-                        ))}
-                        <span className="crm-muted">
-                            · Phụ trách:{" "}
-                            <strong>{c.owner?.name ?? "Chưa giao"}</strong>
-                        </span>
-                    </div>
-                }
                 extra={
                     <>
                         <Button
@@ -526,60 +506,38 @@ export default function Show() {
                     </>
                 }
             />
-
-            {c.data_completeness < 100 && (
-                <Alert
-                    className="crm-section"
-                    type={c.data_completeness < 60 ? "warning" : "info"}
-                    showIcon
-                    title={
-                        <div className="crm-completeness">
-                            <span>Hồ sơ đầy đủ {c.data_completeness}%</span>
-                            <CompletenessBadge value={c.data_completeness} />
-                        </div>
-                    }
-                    description={`Còn thiếu: ${c.missing.join(" · ")}`}
-                />
-            )}
-
             <Card className="crm-section">
                 <Tabs
+                    defaultActiveKey="details"
                     items={[
                         {
-                            key: "overview",
-                            label: "Tổng quan",
+                            key: "details",
+                            label: "Chi tiết khách hàng",
                             children: (
-                                <div className="crm-stack">
-                                    <Descriptions
-                                        title="Thông tin doanh nghiệp"
-                                        bordered
-                                        size="small"
-                                        column={{ xs: 1, md: 2 }}
-                                        items={general}
-                                    />
-                                    <Descriptions
-                                        title="Quy mô & tiềm năng"
-                                        bordered
-                                        size="small"
-                                        column={{ xs: 1, md: 2 }}
-                                        items={potential}
-                                    />
-                                    <Descriptions
-                                        title="Thương mại & chăm sóc"
-                                        bordered
-                                        size="small"
-                                        column={{ xs: 1, md: 2 }}
-                                        items={commercial}
-                                    />
-                                    <Typography.Text type="secondary">
-                                        Tạo ngày {formatDate(c.created_at)}
-                                        {c.creator && ` bởi ${c.creator}`} · Vào
-                                        giai đoạn hiện tại:{" "}
-                                        {formatDate(c.lifecycle_stage_at)}
-                                    </Typography.Text>
-                                </div>
+                                <Descriptions
+                                    bordered
+                                    column={{ xs: 1, md: 2 }}
+                                    items={customerDetails}
+                                />
                             ),
                         },
+                        {
+                            key: "notes",
+                            label: "Ghi chú",
+                            children: (
+                                <CustomerNotes
+                                    key={c.id}
+                                    customerId={c.id}
+                                    currentUserId={auth.user!.id}
+                                    canCreate={can.update}
+                                />
+                            ),
+                        },
+                    ]}
+                />
+
+                <Tabs
+                    items={[
                         {
                             key: "contacts",
                             label: `Người liên hệ (${activeContacts})`,
@@ -609,41 +567,6 @@ export default function Show() {
                                         locale={{
                                             emptyText: (
                                                 <Empty description="Chưa có người liên hệ – nên có ít nhất Purchasing và EHS/QA" />
-                                            ),
-                                        }}
-                                    />
-                                </>
-                            ),
-                        },
-                        {
-                            key: "plants",
-                            label: `Nhà máy (${plants.length})`,
-                            children: (
-                                <>
-                                    {can.update && (
-                                        <div className="crm-tab-toolbar">
-                                            <Button
-                                                icon={<PlusOutlined />}
-                                                onClick={() =>
-                                                    setPlantModal({
-                                                        open: true,
-                                                        item: null,
-                                                    })
-                                                }
-                                            >
-                                                Thêm nhà máy
-                                            </Button>
-                                        </div>
-                                    )}
-                                    <Table<PlantItem>
-                                        rowKey="id"
-                                        columns={plantColumns}
-                                        dataSource={plants}
-                                        pagination={false}
-                                        scroll={{ x: 720 }}
-                                        locale={{
-                                            emptyText: (
-                                                <Empty description="Chưa có nhà máy / địa điểm" />
                                             ),
                                         }}
                                     />

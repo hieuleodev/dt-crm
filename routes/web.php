@@ -10,6 +10,7 @@ use App\Http\Controllers\Customer\PlantController;
 use App\Http\Controllers\Care\TaskController;
 use App\Http\Controllers\Customer\ContactController;
 use App\Http\Controllers\Care\WorkbenchController;
+use App\Http\Controllers\Customer\CustomerNoteController;
 
 Route::middleware('guest')->group(function () {
     Route::get('/login', [LoginController::class, 'create'])->name('login');
@@ -38,4 +39,8 @@ Route::middleware('auth')->group(function () {
     Route::patch('/tasks/{task}/status', [TaskController::class, 'status'])->whereNumber('task')->name('tasks.status');
     //today tasks
     Route::get('/workbench', WorkbenchController::class)->name('workbench');
+    //note customer
+    Route::get('/customers/{customer}/notes',[CustomerNoteController::class, 'index'],)->name('customers.notes.index');
+    Route::post('/customers/{customer}/notes',[CustomerNoteController::class, 'store'],)->name('customers.notes.store');
+
 });

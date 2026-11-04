@@ -30,7 +30,13 @@ const MENU = [
     {
         key: "/leads",
         icon: <FunnelPlotOutlined />,
-        label: "Lead & Cơ hội",
+        label: "Lead",
+        disabled: false,
+    },
+    {
+        key: "/opportunities",
+        icon: <FunnelPlotOutlined />,
+        label: "Cơ hội",
         disabled: false,
     },
     {
@@ -40,15 +46,9 @@ const MENU = [
         disabled: false,
     },
     {
-        key: "/tickets",
-        icon: <CustomerServiceOutlined />,
-        label: "Khiếu nại",
-        disabled: false,
-    },
-    {
-        key: "/reports",
+        key: "/calendar",
         icon: <BarChartOutlined />,
-        label: "Báo cáo",
+        label: "Lịch trình",
         disabled: false,
     },
     {

@@ -9,6 +9,8 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Domain\Customer\Models\CustomerNote;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Task extends Model
 {
@@ -107,4 +109,8 @@ class Task extends Model
     {
         return $this->isOpen() && $this->due_at->isBefore(now('UTC'));
     }
+    public function customerNote(): HasOne
+{
+    return $this->hasOne(CustomerNote::class, 'task_id');
+}
 }

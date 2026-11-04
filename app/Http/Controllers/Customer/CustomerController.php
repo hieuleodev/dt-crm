@@ -19,6 +19,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
+use App\Domain\Customer\Models\CustomerNote;
 
 class CustomerController extends Controller
 {
@@ -41,6 +42,7 @@ class CustomerController extends Controller
                 $w->where('name', 'like', "%{$term}%")
                     ->orWhere('code', 'like', "%{$term}%")
                     ->orWhere('short_name', 'like', "%{$term}%")
+                    ->orWhere('email', 'like', "%{$term}%")
                     ->orWhereHas('contacts', fn ($c) => $c->where('full_name', 'like', "%{$term}%")->orWhere('email', 'like', "%{$term}%"));
                 if ($key !== '') {
                     $w->orWhere('name_key', 'like', "%{$key}%"); 
@@ -86,6 +88,9 @@ class CustomerController extends Controller
                 'contacts_count' => $c->contacts_count,
                 'data_completeness' => $c->data_completeness,
                 'tags' => $c->tags->pluck('name'),
+                'email' => $c->email,
+                'phone' => $c->phone,
+                'address' => $c->address,
             ]);
 
         return Inertia::render('Customers/Index', [
@@ -245,6 +250,7 @@ class CustomerController extends Controller
             Customer::class => [$customer->id],
             Contact::class => $customer->contacts()->withTrashed()->pluck('id')->all(),
             Plant::class => $customer->plants()->withTrashed()->pluck('id')->all(),
+            CustomerNote::class => CustomerNote::query()->where('customer_id', $customer->id)->pluck('id')->all(),
         ];
 
         $logs = AuditLog::query()->with('user:id,name')

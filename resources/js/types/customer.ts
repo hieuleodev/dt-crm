@@ -37,6 +37,9 @@ export interface CustomerRow {
     contacts_count: number;
     data_completeness: number;
     tags: string[];
+    email: string | null;
+    phone: string | null;
+    address: string | null;
 }
 
 export interface CustomerFormData {
@@ -149,3 +152,16 @@ export interface DuplicateMatch {
     owner: string | null;
     reasons: string[];
 }
+
+export type CustomerBasicFormData = Pick<
+    CustomerFormData,
+    | "id"
+    | "name"
+    | "email"
+    | "phone"
+    | "address"
+    | "company_type"
+    | "industry"
+    | "status"
+    | "notes"
+>;

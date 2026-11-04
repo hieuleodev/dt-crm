@@ -83,7 +83,18 @@ class SaveTask
                     $leadId = $target->id;
                 }
             }
-
+            if (
+                $task->exists
+                && $task->customerNote()->exists()
+                && (
+                    $task->customer_id !== $customerId
+                    || $leadId !== null
+                )
+            ) {
+                throw ValidationException::withMessages([
+                    'reference' => 'Nhiệm vụ này gắn với ghi chú khách hàng, không thể đổi hồ sơ liên quan.',
+                ]);
+            }
             $task->fill([
                 'title' => trim($data['title']),
                 'description' => $data['description'] ?? null,

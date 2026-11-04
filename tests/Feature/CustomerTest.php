@@ -59,35 +59,87 @@ class CustomerTest extends TestCase
     }
 
     public function test_create_normalizes_data_and_generates_code(): void
-    {
-        $sale = $this->user(UserRole::Sales);
-        $other = $this->user(UserRole::Sales);
+{
+    $sale = $this->user(UserRole::Sales);
+    $other = $this->user(UserRole::Sales);
 
-        $this->actingAs($sale)->post('/customers', [
-            'name' => 'Công ty TNHH Điện tử ABC Việt Nam', 'tax_code' => '0101 234 567', 'phone' => '(024) 3333-4444',
-            'lifecycle_stage' => 'prospect', 'status' => 'active', 'owner_id' => $other->id, 'tags' => ['FDI', 'FDI'],
-        ])->assertRedirect();
+    $this->actingAs($sale)->post('/customers', [
+        'name' => 'Công ty TNHH Điện tử ABC Việt Nam',
+        'email' => 'CONTACT@EXAMPLE.COM',
+        'phone' => '(024) 3333-4444',
+        'address' => 'Hà Nội',
+        'company_type' => 'domestic',
+        'status' => 'active',
+        'notes' => 'Khách hàng mới',
 
-        $c = Customer::firstOrFail();
-        $this->assertSame('KH00001', $c->code);
-        $this->assertSame('0101234567', $c->tax_code);
-        $this->assertSame('02433334444', $c->phone);
-        $this->assertSame('dien tu abc', $c->name_key);
-        $this->assertSame($sale->id, $c->owner_id, 'Nhân viên tạo khách thì khách thuộc về chính mình');
-        $this->assertCount(1, $c->tags);
-        $this->assertDatabaseHas('customer_owner_histories', ['customer_id' => $c->id, 'to_user_id' => $sale->id]);
-    }
+        'owner_id' => $other->id,
+        'tax_code' => '0101234567',
+        'tags' => ['FDI'],
+        'lifecycle_stage' => 'loyal',
+    ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
 
-    public function test_duplicate_tax_code_is_rejected_in_vietnamese(): void
-    {
-        $sale = $this->user(UserRole::Sales);
-        $this->customer($sale, ['tax_code' => '0101234567']);
+    $customer = Customer::firstOrFail();
 
-        $this->actingAs($sale)->post('/customers', ['name' => 'Trùng', 'tax_code' => '0101234567', 'lifecycle_stage' => 'prospect', 'status' => 'active'])
-            ->assertSessionHasErrors(['tax_code' => 'Mã số thuế đã có trong hệ thống – có thể khách đã được tạo, hãy tìm trước khi thêm mới.']);
-        $this->actingAs($sale)->post('/customers', ['name' => 'Sai', 'tax_code' => '12345', 'lifecycle_stage' => 'prospect', 'status' => 'active'])
-            ->assertSessionHasErrors('tax_code');
-    }
+    $this->assertSame('KH00001', $customer->code);
+    $this->assertSame('contact@example.com', $customer->email);
+    $this->assertSame('02433334444', $customer->phone);
+    $this->assertSame('dien tu abc', $customer->name_key);
+    $this->assertSame('Hà Nội', $customer->address);
+    $this->assertSame('Khách hàng mới', $customer->notes);
+
+    $this->assertSame($sale->id, $customer->owner_id);
+    $this->assertSame('prospect', $customer->lifecycle_stage->value);
+
+    $this->assertNull($customer->tax_code);
+    $this->assertCount(0, $customer->tags);
+
+    $this->assertDatabaseHas('customer_owner_histories', [
+        'customer_id' => $customer->id,
+        'to_user_id' => $sale->id,
+    ]);
+}
+
+   public function test_basic_update_preserves_existing_customer_data(): void
+{
+    $sale = $this->user(UserRole::Sales);
+
+    $customer = $this->customer($sale, [
+        'tax_code' => '0101234567',
+        'lifecycle_stage' => 'contacted',
+        'marketing_consent' => true,
+        'tags' => ['FDI'],
+    ]);
+
+    $originalCode = $customer->code;
+
+    $this->actingAs($sale)
+        ->put("/customers/{$customer->id}", [
+            'name' => 'Tên khách hàng đã cập nhật',
+            'email' => 'updated@example.com',
+            'phone' => '0912345678',
+            'address' => 'Địa chỉ mới',
+            'company_type' => 'domestic',
+            'status' => 'active',
+            'notes' => 'Mô tả mới',
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $customer->refresh();
+
+    $this->assertSame('Tên khách hàng đã cập nhật', $customer->name);
+    $this->assertSame('updated@example.com', $customer->email);
+    $this->assertSame('Địa chỉ mới', $customer->address);
+
+    $this->assertSame($originalCode, $customer->code);
+    $this->assertSame('0101234567', $customer->tax_code);
+    $this->assertSame('contacted', $customer->lifecycle_stage->value);
+    $this->assertSame($sale->id, $customer->owner_id);
+    $this->assertTrue($customer->marketing_consent);
+    $this->assertSame(['FDI'], $customer->tags->pluck('name')->all());
+}
 
     public function test_duplicate_check_finds_similar_names_and_phones(): void
     {
@@ -116,17 +168,59 @@ class CustomerTest extends TestCase
     }
 
     public function test_changes_are_audited_and_completeness_updates(): void
-    {
-        $sale = $this->user(UserRole::Sales);
-        $c = $this->customer($sale);
-        $before = $c->fresh()->data_completeness;
+{
+    $sale = $this->user(UserRole::Sales);
+    $customer = $this->customer($sale);
 
-        $this->actingAs($sale)->post("/customers/{$c->id}/contacts", ['full_name' => 'Lê Hà', 'buying_role' => 'purchasing', 'phone' => '0912000001', 'is_primary' => true])->assertRedirect();
-        $this->actingAs($sale)->put("/customers/{$c->id}", ['name' => 'Tên mới', 'lifecycle_stage' => 'contacted', 'status' => 'active'])->assertRedirect();
+    $before = $customer->fresh()->data_completeness;
 
-        $this->assertGreaterThan($before, $c->fresh()->data_completeness);
-        $log = AuditLog::where('auditable_type', Customer::class)->where('event', 'updated')->latest('id')->firstOrFail();
-        $this->assertSame('Tên mới', $log->new_values['name']);
-        $this->assertSame($sale->id, $log->user_id);
-    }
+    $this->actingAs($sale)
+        ->post("/customers/{$customer->id}/contacts", [
+            'full_name' => 'Lê Hà',
+            'buying_role' => 'purchasing',
+            'phone' => '0912000001',
+            'is_primary' => true,
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $this->assertDatabaseHas('contacts', [
+        'customer_id' => $customer->id,
+        'full_name' => 'Lê Hà',
+    ]);
+
+    // Điểm hồ sơ cơ bản không còn phụ thuộc vào Contact.
+    $this->assertSame(
+        $before,
+        $customer->fresh()->data_completeness,
+    );
+
+    $this->actingAs($sale)
+        ->put("/customers/{$customer->id}", [
+            'name' => 'Tên mới',
+            'email' => 'customer@example.com',
+            'phone' => '0912345678',
+            'address' => 'Hà Nội',
+            'company_type' => 'domestic',
+            'status' => 'active',
+            'notes' => 'Đã cập nhật thông tin liên hệ',
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $this->assertGreaterThan(
+        $before,
+        $customer->fresh()->data_completeness,
+    );
+
+    $log = AuditLog::query()
+        ->where('auditable_type', Customer::class)
+        ->where('auditable_id', $customer->id)
+        ->where('event', 'updated')
+        ->latest('id')
+        ->firstOrFail();
+
+    $this->assertSame('Tên mới', $log->new_values['name']);
+    $this->assertSame($sale->id, $log->user_id);
+}
 }

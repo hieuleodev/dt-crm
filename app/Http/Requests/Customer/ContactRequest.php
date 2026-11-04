@@ -5,7 +5,6 @@ namespace App\Http\Requests\Customer;
 use App\Domain\Customer\Enums\Attitude;
 use App\Domain\Customer\Enums\BuyingRole;
 use App\Domain\Customer\Enums\ContactChannel;
-use App\Domain\Customer\Enums\Influence;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -26,8 +25,6 @@ class ContactRequest extends FormRequest
             'department' => ['nullable', 'string', 'max:120'],
             'plant_id' => ['nullable', 'integer', Rule::exists('plants', 'id')->where('customer_id', $customer->id)],
             'buying_role' => ['required', Rule::enum(BuyingRole::class)],
-            'influence' => ['nullable', Rule::enum(Influence::class)],
-            'attitude' => ['nullable', Rule::enum(Attitude::class)],
             'phone' => ['nullable', 'string', 'max:30'],
             'email' => ['nullable', 'email', 'max:255'],
             'zalo' => ['nullable', 'string', 'max:30'],
