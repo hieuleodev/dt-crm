@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers\Care;
 
-use App\Domain\Care\Models\Task;
-use App\Domain\Care\Queries\WorkbenchQuery;
 use App\Http\Controllers\Controller;
+use App\Models\Task;
 use App\Models\User;
+use App\Queries\Care\WorkbenchQuery;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;

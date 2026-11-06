@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers\Customer;
 
-use App\Domain\Customer\Actions\FindDuplicateCustomers;
 use App\Http\Controllers\Controller;
+use App\Services\Customer\FindDuplicateCustomers;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 

@@ -2,9 +2,9 @@
 
 namespace App\Http\Requests\Customer;
 
-use App\Domain\Customer\Enums\CompanyType;
-use App\Domain\Customer\Enums\CustomerStatus;
-use App\Domain\Customer\Enums\Industry;
+use App\Enums\Customer\CompanyType;
+use App\Enums\Customer\CustomerStatus;
+use App\Enums\Customer\Industry;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 

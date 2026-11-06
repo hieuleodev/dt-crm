@@ -2,24 +2,24 @@
 
 namespace App\Http\Controllers\Customer;
 
-use App\Domain\Customer\Actions\DataCompleteness;
-use App\Domain\Customer\Actions\FindDuplicateCustomers;
-use App\Domain\Customer\Actions\ReassignOwner;
-use App\Domain\Customer\Actions\SaveCustomer;
-use App\Domain\Customer\Data\CustomerOptions;
-use App\Domain\Customer\Models\Contact;
-use App\Domain\Customer\Models\Customer;
-use App\Domain\Customer\Models\Plant;
-use App\Domain\Shared\Models\AuditLog;
+use App\Data\Customer\CustomerOptions;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Customer\CustomerRequest;
+use App\Models\AuditLog;
+use App\Models\Contact;
+use App\Models\Customer;
+use App\Models\CustomerNote;
+use App\Models\Plant;
 use App\Models\User;
+use App\Services\Customer\DataCompleteness;
+use App\Services\Customer\FindDuplicateCustomers;
+use App\Services\Customer\ReassignOwner;
+use App\Services\Customer\SaveCustomer;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
-use App\Domain\Customer\Models\CustomerNote;
 
 class CustomerController extends Controller
 {
@@ -45,7 +45,7 @@ class CustomerController extends Controller
                     ->orWhere('email', 'like', "%{$term}%")
                     ->orWhereHas('contacts', fn ($c) => $c->where('full_name', 'like', "%{$term}%")->orWhere('email', 'like', "%{$term}%"));
                 if ($key !== '') {
-                    $w->orWhere('name_key', 'like', "%{$key}%"); 
+                    $w->orWhere('name_key', 'like', "%{$key}%");
                 }
                 if (strlen($digits) >= 4) {
                     $w->orWhere('tax_code', 'like', "%{$digits}%")
@@ -257,7 +257,7 @@ class CustomerController extends Controller
             ->where(function ($q) use ($targets) {
                 foreach ($targets as $type => $ids) {
                     if ($ids) {
-                        $q->orWhere(fn ($w) => $w->where('auditable_type', $type)->whereIn('auditable_id', $ids));
+                        $q->orWhere(fn ($w) => $w->whereIn('auditable_type', AuditLog::typesFor($type))->whereIn('auditable_id', $ids));
                     }
                 }
             })

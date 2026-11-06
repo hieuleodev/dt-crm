@@ -2,9 +2,8 @@
 
 namespace App\Http\Requests\Customer;
 
-use App\Domain\Customer\Enums\Attitude;
-use App\Domain\Customer\Enums\BuyingRole;
-use App\Domain\Customer\Enums\ContactChannel;
+use App\Enums\Customer\BuyingRole;
+use App\Enums\Customer\ContactChannel;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 

@@ -10,17 +10,9 @@ export default function Login() {
     });
 
     return (
-        <div
-            style={{
-                minHeight: "100vh",
-                display: "grid",
-                placeItems: "center",
-                background: "#f5f7fb",
-                padding: 16,
-            }}
-        >
+        <div className="crm-login">
             <Head title="Đăng nhập" />
-            <Card style={{ width: "100%", maxWidth: 380 }}>
+            <Card className="crm-login__card">
                 <Typography.Title level={4} style={{ marginTop: 0 }}>
                     D&T CRM
                 </Typography.Title>

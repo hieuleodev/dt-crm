@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers\Customer;
 
-use App\Domain\Customer\Models\Customer;
-use App\Domain\Customer\Models\Plant;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Customer\PlantRequest;
+use App\Models\Customer;
+use App\Models\Plant;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Gate;
 

@@ -2,13 +2,14 @@
 
 namespace App\Http\Controllers\Care;
 
-use App\Domain\Care\Actions\ChangeTaskStatus;
-use App\Domain\Care\Actions\SaveTask;
-use App\Domain\Care\Models\Task;
-use App\Domain\Customer\Models\Customer;
+use App\Data\Care\TaskData;
 use App\Http\Controllers\Controller;
+use App\Models\Customer;
 use App\Models\Lead;
+use App\Models\Task;
 use App\Models\User;
+use App\Services\Care\ChangeTaskStatus;
+use App\Services\Care\SaveTask;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -16,7 +17,6 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
-use App\Domain\Care\Data\TaskData;
 
 class TaskController extends Controller
 {
@@ -319,7 +319,7 @@ class TaskController extends Controller
     }
 
     private function row(Task $task): array
-{
-    return TaskData::from($task);
-}
+    {
+        return TaskData::from($task);
+    }
 }

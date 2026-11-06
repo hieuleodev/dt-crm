@@ -2,12 +2,12 @@
 
 namespace App\Http\Controllers\Customer;
 
-use App\Domain\Care\Actions\SaveTask;
-use App\Domain\Care\Models\Task;
-use App\Domain\Customer\Models\Customer;
-use App\Domain\Customer\Models\CustomerNote;
 use App\Http\Controllers\Controller;
+use App\Models\Customer;
+use App\Models\CustomerNote;
+use App\Models\Task;
 use App\Models\User;
+use App\Services\Care\SaveTask;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;

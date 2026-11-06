@@ -2,11 +2,11 @@
 
 namespace Database\Seeders;
 
-use App\Domain\Customer\Actions\DataCompleteness;
-use App\Domain\Customer\Actions\SaveCustomer;
-use App\Domain\Customer\Models\Customer;
-use App\Domain\Staff\Enums\UserRole;
+use App\Enums\Staff\UserRole;
+use App\Models\Customer;
 use App\Models\User;
+use App\Services\Customer\DataCompleteness;
+use App\Services\Customer\SaveCustomer;
 use Illuminate\Database\Seeder;
 
 class DemoCustomerSeeder extends Seeder

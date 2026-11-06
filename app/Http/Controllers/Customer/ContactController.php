@@ -2,11 +2,11 @@
 
 namespace App\Http\Controllers\Customer;
 
-use App\Domain\Customer\Actions\DataCompleteness;
-use App\Domain\Customer\Models\Contact;
-use App\Domain\Customer\Models\Customer;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Customer\ContactRequest;
+use App\Models\Contact;
+use App\Models\Customer;
+use App\Services\Customer\DataCompleteness;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;

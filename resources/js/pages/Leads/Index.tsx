@@ -27,7 +27,6 @@ import {
     PlusOutlined,
 } from "@ant-design/icons";
 import AppLayout from "@/layouts/AppLayout";
-import "../../../css/leads.css";
 
 type Kind = "lead" | "opportunity";
 

@@ -1,58 +1,114 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# D&T CRM
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+CRM theo MVC, sử dụng **PHP, React/TypeScript và MySQL**.
 
-## About Laravel
+## 1. Chuẩn bị
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+- **PHP 8.5 + Composer 2:** cài qua [Laravel Herd](https://herd.laravel.com/windows). Bật `pdo_sqlite`, `pdo_mysql` theo database sử dụng.
+- **Node.js 22 từ 22.12 trở lên:** cài từ [Node.js](https://nodejs.org/en/download), kèm npm.
+- **Docker Desktop:** chỉ cần khi chạy MySQL bằng Compose.
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+Mở PowerShell tại thư mục dự án:
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+```powershell
 
-## Learning Laravel
+$env:Path = "$env:USERPROFILE\.config\herd\bin\php85;$env:USERPROFILE\.config\herd\bin;$env:Path"
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
-
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
-
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
-
-## Agentic Development
-
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
-
-```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+php -v
+composer -V
+node -v
+npm.cmd -v
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+## 2. Cài lần đầu
 
-## Contributing
+```powershell
+composer install --no-interaction
+npm.cmd ci
+```
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+**Bản cài mới:** sao chép `.env.example` thành `.env`, rồi chạy `php artisan key:generate`. **Bản đã có dữ liệu:** giữ nguyên `.env`, `APP_KEY` và database.
 
-## Code of Conduct
+Chọn một database trong `.env`:
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+### SQLite — chạy nhanh, giữ dữ liệu hiện tại
 
-## Security Vulnerabilities
+```dotenv
+DB_CONNECTION=sqlite
+```
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+Bỏ `DB_DATABASE` nếu đang đặt tên MySQL; Laravel sẽ dùng `database/database.sqlite`. Bỏ/cập nhật `DB_URL` nếu có.
 
-## License
+```powershell
+if (-not (Test-Path database/database.sqlite)) {
+    New-Item -ItemType File -Path database/database.sqlite | Out-Null
+}
+php artisan config:clear
+php artisan migrate --no-interaction
+```
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+### MySQL — dùng Docker
+
+Mở Docker Desktop rồi chạy:
+
+```powershell
+docker compose -f compose.mysql.yml up -d --wait
+```
+
+Sửa `.env`:
+
+```dotenv
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=dt_crm
+DB_USERNAME=dt_crm
+DB_PASSWORD=dt_crm_local
+```
+
+```powershell
+php artisan config:clear
+php artisan migrate --no-interaction
+```
+
+Mật khẩu trên chỉ dùng local. Nếu dùng MySQL cài sẵn, tạo database/user và sửa kết nối tương ứng. **Đổi kết nối không tự chuyển dữ liệu SQLite sang MySQL.** Lệnh chuyển riêng là `php artisan crm:copy-sqlite-to-mysql --source="database/import.sqlite" --dry-run`; cần sao lưu, cập nhật migrations trên bản sao nguồn và chuẩn bị MySQL đích trống trước khi chạy lại lệnh không có `--dry-run`.
+
+## 3. Chạy mỗi ngày
+
+**Terminal 1**, tại thư mục dự án, thiết lập PATH Herd như phần 1 nếu cần:
+
+```powershell
+php artisan serve --host=127.0.0.1 --port=8000
+```
+
+**Terminal 2**, cũng tại thư mục dự án:
+
+```powershell
+npm.cmd run dev -- --host 127.0.0.1 --port 5173 --strictPort
+```
+
+Mở **http://127.0.0.1:8000**. Giữ hai terminal mở; nhấn `Ctrl+C` để dừng. Không cần cài lại thư viện mỗi lần chạy.
+
+## 4. Đăng nhập
+
+| Email quản trị        | Mật khẩu mặc định |
+| --------------------- | ----------------- |
+| admin@trangthietbi.vn | Admin@12345       |
+
+Để tạo tài khoản trên bản cài mới:
+
+```powershell
+php artisan db:seed --class=DatabaseSeeder --no-interaction
+```
+
+Chạy lại seeder sẽ **đặt lại mật khẩu admin**. Với hệ thống đang dùng, đăng nhập bằng tài khoản cũ. Đổi mật khẩu mặc định trước khi sử dụng thực tế.
+
+## 5. Build và kiểm tra
+
+```powershell
+npm.cmd run build
+npx.cmd tsc --noEmit
+php artisan test --compact
+```
+
+Để chạy bằng bản build, dừng Vite, xóa `public/hot` nếu còn rồi chạy PHP server. Test dùng SQLite trong bộ nhớ. Khi có job chạy nền, mở thêm terminal chạy `php artisan queue:work`.
