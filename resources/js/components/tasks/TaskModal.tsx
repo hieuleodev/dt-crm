@@ -44,6 +44,7 @@ interface Props {
     assignees: TaskAssignee[];
     currentUserId: number;
     initialReference: TaskReference | null;
+    initialDueAt?: string | Dayjs | null;
     onClose: () => void;
 }
 
@@ -57,6 +58,7 @@ export default function TaskModal({
     assignees,
     currentUserId,
     initialReference,
+    initialDueAt,
     onClose,
 }: Props) {
     const [form] = Form.useForm<Values>();
@@ -83,9 +85,11 @@ export default function TaskModal({
             reference: task?.reference?.value ?? initialReference?.value,
             due_at: task
                 ? dayjs(task.due_at).tz(TIMEZONE)
-                : dayjs().tz(TIMEZONE).add(1, "day").startOf("hour"),
+                : initialDueAt
+                  ? dayjs(initialDueAt).tz(TIMEZONE)
+                  : dayjs().tz(TIMEZONE).add(1, "day").startOf("hour"),
         });
-    }, [open, task, initialReference, currentUserId, form]);
+    }, [open, task, initialReference, initialDueAt, currentUserId, form]);
 
     useEffect(() => {
         if (!open) return;
