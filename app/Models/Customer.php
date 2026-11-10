@@ -79,6 +79,11 @@ class Customer extends Model
         return $this->hasMany(Plant::class);
     }
 
+    public function opportunities(): HasMany
+    {
+        return $this->hasMany(Lead::class)->where('kind', 'opportunity');
+    }
+
     public function tags(): BelongsToMany
     {
         return $this->belongsToMany(Tag::class);

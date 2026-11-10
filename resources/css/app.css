@@ -1182,6 +1182,161 @@ button.crm-workbench__metric:not(:disabled):active {
     width: 100%;
 }
 
+.crm-kanban {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(270px, 1fr));
+    gap: var(--crm-space-4);
+    align-items: start;
+    overflow-x: auto;
+    padding-bottom: var(--crm-space-2);
+}
+
+.crm-kanban__column {
+    display: flex;
+    flex-direction: column;
+    gap: var(--crm-space-3);
+    min-height: 440px;
+    padding: var(--crm-space-4);
+    border: 1px solid var(--crm-border);
+    border-radius: var(--crm-radius-md);
+    background: var(--crm-surface-subtle);
+    transition: border-color var(--crm-motion), background-color var(--crm-motion);
+}
+
+.crm-kanban__column.is-drag-over {
+    border-color: var(--crm-accent);
+    background: var(--crm-accent-soft);
+}
+
+.crm-kanban__header {
+    display: flex;
+    flex-direction: column;
+    gap: var(--crm-space-1);
+    padding-bottom: var(--crm-space-3);
+    border-bottom: 1px solid var(--crm-border);
+}
+
+.crm-kanban__title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--crm-space-2);
+}
+
+.crm-kanban__title {
+    font-size: var(--crm-font-md);
+    font-weight: 700;
+    color: var(--crm-text);
+}
+
+.crm-kanban__total {
+    font-size: var(--crm-font-sm);
+    font-weight: 600;
+    color: var(--crm-text-muted);
+}
+
+.crm-kanban__cards {
+    display: flex;
+    flex-direction: column;
+    gap: var(--crm-space-3);
+    flex: 1;
+}
+
+.crm-kanban__card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--crm-space-2);
+    padding: var(--crm-space-4);
+    border: 1px solid var(--crm-border);
+    border-radius: var(--crm-radius-md);
+    background: var(--crm-surface-panel);
+    transition: border-color var(--crm-motion), box-shadow var(--crm-motion);
+}
+
+.crm-kanban__card:hover {
+    border-color: var(--crm-control-border);
+}
+
+.crm-kanban__card-body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--crm-space-2);
+    cursor: grab;
+}
+
+.crm-kanban__card-body:active {
+    cursor: grabbing;
+}
+
+.crm-kanban__card-value {
+    font-size: var(--crm-font-lg);
+    font-weight: 700;
+    color: var(--crm-accent-text);
+}
+
+.crm-kanban__card-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--crm-space-2);
+    font-size: var(--crm-font-xs);
+    color: var(--crm-text-muted);
+}
+
+.crm-kanban__card-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--crm-space-2);
+    padding-top: var(--crm-space-2);
+    border-top: 1px solid var(--crm-border);
+    cursor: default;
+}
+
+.crm-kanban__card-interactive {
+    position: relative;
+    cursor: default;
+}
+
+.ant-btn.crm-btn-action--task {
+    background: var(--crm-accent-soft);
+    border-color: #f3b6c0;
+    color: var(--crm-accent-text);
+    font-weight: 500;
+}
+
+.ant-btn.crm-btn-action--task:hover:not(:disabled) {
+    background: #ffe0e5 !important;
+    border-color: var(--crm-accent) !important;
+    color: var(--crm-accent-hover) !important;
+}
+
+.ant-btn.crm-btn-action--convert {
+    background: #eefbf3;
+    border-color: #a6dfb8;
+    color: var(--crm-success);
+    font-weight: 500;
+}
+
+.ant-btn.crm-btn-action--convert:hover:not(:disabled) {
+    background: #dcf6e6 !important;
+    border-color: var(--crm-success) !important;
+    color: #195933 !important;
+}
+
+.ant-btn.crm-btn-action--list-active {
+    background: #eff6ff;
+    border-color: #bfdbfe;
+    color: #1d4ed8;
+    font-weight: 500;
+}
+
+.ant-btn.crm-btn-action--list-active:hover:not(:disabled) {
+    background: #dbeafe !important;
+    border-color: #3b82f6 !important;
+    color: #1e40af !important;
+}
+
 @media (max-width: 1199px) {
     .crm-task-filters,
     .crm-workbench__metrics,
@@ -1325,12 +1480,7 @@ button.crm-workbench__metric:not(:disabled):active {
 }
 
 @media (prefers-reduced-motion: reduce) {
-    *,
-    *::before,
-    *::after {
-        animation-duration: 0.01ms !important;
-        animation-iteration-count: 1 !important;
-        transition-duration: 0.01ms !important;
+    html {
         scroll-behavior: auto !important;
     }
 }

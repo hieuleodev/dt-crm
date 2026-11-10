@@ -38,6 +38,7 @@ import type {
     AuditItem,
     ContactItem,
     CustomerDetail,
+    CustomerOpportunityItem,
     CustomerOptions,
     OwnerHistoryItem,
     OwnerOption,
@@ -49,6 +50,7 @@ interface Props extends PageProps {
     customer: CustomerDetail;
     contacts: ContactItem[];
     plants: PlantItem[];
+    opportunities: CustomerOpportunityItem[];
     ownerHistory: OwnerHistoryItem[];
     auditLogs: AuditItem[];
     options: CustomerOptions;
@@ -86,12 +88,19 @@ const FIELD_LABELS: Record<string, string> = {
     marketing_consent: "Đồng ý nhận tin",
     body: "Nội dung ghi chú",
     task_id: "Nhiệm vụ nhắc việc",
+    stage: "Giai đoạn cơ hội",
+    estimated_value: "Giá trị dự kiến",
+    probability: "Xác suất (%)",
+    expected_close_date: "Ngày dự kiến chốt",
+    lost_reason: "Lý do thất bại",
+    contact_name: "Người liên hệ",
 };
 const SUBJECTS: Record<string, string> = {
     Customer: "Khách hàng",
     Contact: "Người liên hệ",
     Plant: "Nhà máy",
     CustomerNote: "Ghi chú khách hàng",
+    Lead: "Cơ hội kinh doanh",
 };
 const EVENTS: Record<string, { label: string; color: string }> = {
     created: { label: "Tạo mới", color: "green" },
@@ -113,6 +122,7 @@ export default function Show() {
         customer: c,
         contacts,
         plants,
+        opportunities = [],
         ownerHistory,
         auditLogs,
         options,
@@ -453,6 +463,81 @@ export default function Show() {
         },
     ];
 
+    const openOppValue = opportunities
+        .filter((o) => o.stage === "proposal" || o.stage === "negotiation")
+        .reduce((sum, o) => sum + Number(o.estimated_value), 0);
+    const wonOppValue = opportunities
+        .filter((o) => o.stage === "won")
+        .reduce((sum, o) => sum + Number(o.estimated_value), 0);
+
+    const opportunityColumns: TableProps<CustomerOpportunityItem>["columns"] = [
+        {
+            title: "Thương vụ / Liên hệ",
+            key: "title",
+            render: (_, opp) => (
+                <div>
+                    <div>
+                        <strong>{opp.title}</strong>
+                    </div>
+                    <div className="crm-muted">
+                        {opp.contact_name}
+                        {opp.phone ? ` · ${opp.phone}` : ""}
+                    </div>
+                </div>
+            ),
+        },
+        {
+            title: "Giai đoạn & Xác suất",
+            key: "stage",
+            render: (_, opp) => (
+                <div>
+                    <Tag className={`leads-stage leads-stage--${opp.stage}`}>
+                        {opp.stage_label}
+                    </Tag>{" "}
+                    <span className="crm-muted">{opp.probability}%</span>
+                    {opp.stage === "lost" && opp.lost_reason && (
+                        <div className="crm-muted">
+                            Lý do: {opp.lost_reason}
+                        </div>
+                    )}
+                </div>
+            ),
+        },
+        {
+            title: "Giá trị dự kiến",
+            key: "estimated_value",
+            align: "right",
+            render: (_, opp) => <strong>{formatVnd(Number(opp.estimated_value))}</strong>,
+        },
+        {
+            title: "Ngày dự kiến chốt",
+            key: "expected_close_date",
+            render: (_, opp) =>
+                opp.expected_close_date
+                    ? formatDate(opp.expected_close_date)
+                    : "Chưa đặt lịch",
+        },
+        {
+            title: "Phụ trách",
+            dataIndex: "owner",
+            key: "owner",
+            render: (v) => v || "—",
+        },
+        {
+            title: "Thao tác",
+            key: "actions",
+            width: 150,
+            render: (_, opp) => (
+                <Button
+                    size="small"
+                    onClick={() => router.visit(`/tasks?lead_id=${opp.id}`)}
+                >
+                    Nhiệm vụ{opp.tasks_count ? ` (${opp.tasks_count})` : ""}
+                </Button>
+            ),
+        },
+    ];
+
     return (
         <AppLayout>
             <Head title={c.name} />
@@ -461,6 +546,15 @@ export default function Show() {
                 title={c.name}
                 extra={
                     <>
+                        <Button
+                            onClick={() =>
+                                router.visit(
+                                    `/opportunities?customer_id=${c.id}`,
+                                )
+                            }
+                        >
+                            Cơ hội ({opportunities.length})
+                        </Button>
                         <Button
                             onClick={() =>
                                 router.visit(`/tasks?customer_id=${c.id}`)
@@ -567,6 +661,49 @@ export default function Show() {
                                         locale={{
                                             emptyText: (
                                                 <Empty description="Chưa có người liên hệ – nên có ít nhất Purchasing và EHS/QA" />
+                                            ),
+                                        }}
+                                    />
+                                </>
+                            ),
+                        },
+                        {
+                            key: "opportunities",
+                            label: `Cơ hội kinh doanh (${opportunities.length})`,
+                            children: (
+                                <>
+                                    <div className="crm-tab-toolbar">
+                                        <div className="crm-muted">
+                                            Đang thương thảo:{" "}
+                                            <strong>
+                                                {formatVnd(openOppValue)}
+                                            </strong>{" "}
+                                            · Đã chốt thành công:{" "}
+                                            <strong>
+                                                {formatVnd(wonOppValue)}
+                                            </strong>
+                                        </div>
+                                        <Button
+                                            type="primary"
+                                            icon={<PlusOutlined />}
+                                            onClick={() =>
+                                                router.visit(
+                                                    `/opportunities?create_for_customer=${c.id}`,
+                                                )
+                                            }
+                                        >
+                                            Tạo Cơ hội cho khách hàng này
+                                        </Button>
+                                    </div>
+                                    <Table<CustomerOpportunityItem>
+                                        rowKey="id"
+                                        columns={opportunityColumns}
+                                        dataSource={opportunities}
+                                        pagination={false}
+                                        scroll={{ x: 780 }}
+                                        locale={{
+                                            emptyText: (
+                                                <Empty description="Chưa có cơ hội kinh doanh nào gắn với khách hàng này." />
                                             ),
                                         }}
                                     />

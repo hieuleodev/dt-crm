@@ -126,6 +126,7 @@ class LeadController extends Controller
             ->update([
                 'kind' => 'opportunity',
                 'stage' => 'proposal',
+                'probability' => Lead::STAGE_PROBABILITIES['proposal'],
                 'converted_at' => now(),
                 'updated_at' => now(),
             ]);

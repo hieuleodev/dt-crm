@@ -126,6 +126,22 @@ export interface PlantItem {
     delivery_notes: string | null;
 }
 
+export interface CustomerOpportunityItem {
+    id: number;
+    title: string;
+    contact_name: string;
+    phone: string | null;
+    email: string | null;
+    stage: string;
+    stage_label: string;
+    estimated_value: string;
+    probability: number;
+    expected_close_date: string | null;
+    lost_reason: string | null;
+    owner: string | null;
+    tasks_count: number;
+}
+
 export interface OwnerHistoryItem {
     id: number;
     from: string | null;
