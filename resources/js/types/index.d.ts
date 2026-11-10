@@ -10,7 +10,16 @@ export interface AuthUser {
 
 export interface PageProps {
     auth: { user: AuthUser | null };
-    flash: { success?: string | null; error?: string | null };
+    flash: {
+        success?: string | null;
+        error?: string | null;
+        importResult?: {
+            type: "customer" | "lead";
+            created: number;
+            duplicates: number;
+            total: number;
+        } | null;
+    };
     [key: string]: unknown;
 }
 

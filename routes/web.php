@@ -4,6 +4,7 @@ use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\DashboardController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\LeadController;
+use App\Http\Controllers\ImportController;
 use App\Http\Controllers\Customer\DuplicateCheckController;
 use App\Http\Controllers\Customer\CustomerController;
 use App\Http\Controllers\Customer\PlantController;
@@ -20,6 +21,12 @@ Route::middleware('guest')->group(function () {
 Route::middleware('auth')->group(function () {
     Route::get('/', DashboardController::class)->name('dashboard');
     Route::post('/logout', [LoginController::class, 'destroy'])->name('logout');
+    Route::get('/imports', [ImportController::class, 'index'])->name('imports.index');
+    Route::post('/imports', [ImportController::class, 'store'])->middleware('throttle:5,1')->name('imports.store');
+    Route::get('/imports/templates/{type}/{format}', [ImportController::class, 'template'])
+        ->whereIn('type', ['customer', 'lead'])
+        ->whereIn('format', ['csv', 'xlsx'])
+        ->name('imports.template');
     //lead
     Route::get('/leads', [LeadController::class, 'index'])->name('leads.index');
     Route::post('/leads', [LeadController::class, 'store'])->name('leads.store');
