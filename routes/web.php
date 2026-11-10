@@ -1,9 +1,7 @@
 <?php
 
 use App\Http\Controllers\Auth\LoginController;
-<<<<<<< HEAD
 use App\Http\Controllers\Care\CalendarController;
-=======
 use App\Http\Controllers\DashboardController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\LeadController;
@@ -11,17 +9,11 @@ use App\Http\Controllers\ImportController;
 use App\Http\Controllers\Customer\DuplicateCheckController;
 use App\Http\Controllers\Customer\CustomerController;
 use App\Http\Controllers\Customer\PlantController;
->>>>>>> origin/feature/data-import-csv-xlsx
 use App\Http\Controllers\Care\TaskController;
 use App\Http\Controllers\Care\WorkbenchController;
 use App\Http\Controllers\Customer\ContactController;
-use App\Http\Controllers\Customer\CustomerController;
 use App\Http\Controllers\Customer\CustomerNoteController;
-use App\Http\Controllers\Customer\DuplicateCheckController;
-use App\Http\Controllers\Customer\PlantController;
-use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\LeadController;
-use Illuminate\Support\Facades\Route;
+
 
 Route::middleware('guest')->group(function () {
     Route::get('/login', [LoginController::class, 'create'])->name('login');
