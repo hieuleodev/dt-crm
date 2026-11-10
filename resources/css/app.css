@@ -359,6 +359,48 @@ button:disabled {
     gap: var(--crm-space-5);
 }
 
+.crm-import {
+    width: 100%;
+    min-width: 0;
+}
+
+.crm-import__result {
+    margin-bottom: var(--crm-space-5);
+}
+
+.crm-import__card-content,
+.crm-import__form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--crm-space-4);
+}
+
+.crm-import__card-content .ant-typography {
+    margin-bottom: 0;
+}
+
+.crm-import__field {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--crm-space-2);
+}
+
+.crm-import__field > label {
+    color: var(--crm-text);
+    font-weight: 600;
+}
+
+.crm-import__field .ant-select,
+.crm-import__field .ant-upload-wrapper {
+    width: 100%;
+    max-width: 100%;
+}
+
+.crm-import__field .ant-upload-list {
+    max-width: 100%;
+}
+
 .crm-muted {
     color: var(--crm-text-muted);
     font-size: var(--crm-font-sm);

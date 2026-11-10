@@ -1,7 +1,17 @@
 <?php
 
 use App\Http\Controllers\Auth\LoginController;
+<<<<<<< HEAD
 use App\Http\Controllers\Care\CalendarController;
+=======
+use App\Http\Controllers\DashboardController;
+use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\LeadController;
+use App\Http\Controllers\ImportController;
+use App\Http\Controllers\Customer\DuplicateCheckController;
+use App\Http\Controllers\Customer\CustomerController;
+use App\Http\Controllers\Customer\PlantController;
+>>>>>>> origin/feature/data-import-csv-xlsx
 use App\Http\Controllers\Care\TaskController;
 use App\Http\Controllers\Care\WorkbenchController;
 use App\Http\Controllers\Customer\ContactController;
@@ -21,7 +31,13 @@ Route::middleware('guest')->group(function () {
 Route::middleware('auth')->group(function () {
     Route::get('/', DashboardController::class)->name('dashboard');
     Route::post('/logout', [LoginController::class, 'destroy'])->name('logout');
-    // lead
+    Route::get('/imports', [ImportController::class, 'index'])->name('imports.index');
+    Route::post('/imports', [ImportController::class, 'store'])->middleware('throttle:5,1')->name('imports.store');
+    Route::get('/imports/templates/{type}/{format}', [ImportController::class, 'template'])
+        ->whereIn('type', ['customer', 'lead'])
+        ->whereIn('format', ['csv', 'xlsx'])
+        ->name('imports.template');
+    //lead
     Route::get('/leads', [LeadController::class, 'index'])->name('leads.index');
     Route::post('/leads', [LeadController::class, 'store'])->name('leads.store');
     Route::put('/leads/{lead}', [LeadController::class, 'update'])->name('leads.update');
