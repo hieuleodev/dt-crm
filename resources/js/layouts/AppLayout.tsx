@@ -13,6 +13,7 @@ import {
     UploadOutlined,
     UserOutlined,
     CheckSquareOutlined,
+    ScheduleOutlined,
 } from "@ant-design/icons";
 import type { PageProps } from "@/types";
 
@@ -22,7 +23,7 @@ const MENU = [
     { key: "/", icon: <DashboardOutlined />, label: "Tổng quan" },
     {
         key: "/workbench",
-        icon: <CalendarOutlined />,
+        icon: <CheckSquareOutlined />,
         label: "Công việc hôm nay",
         disabled: false,
     },
@@ -41,13 +42,13 @@ const MENU = [
     },
     {
         key: "/tasks",
-        icon: <CheckSquareOutlined />,
+        icon: <ScheduleOutlined />,
         label: "Nhiệm vụ",
         disabled: false,
     },
     {
         key: "/calendar",
-        icon: <BarChartOutlined />,
+        icon: <CalendarOutlined />,
         label: "Lịch trình",
         disabled: false,
     },
