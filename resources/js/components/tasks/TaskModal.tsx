@@ -43,6 +43,7 @@ interface Props {
     options: TaskOptions;
     assignees: TaskAssignee[];
     currentUserId: number;
+    initialAssigneeId?: number;
     initialReference: TaskReference | null;
     onClose: () => void;
 }
@@ -56,6 +57,7 @@ export default function TaskModal({
     options,
     assignees,
     currentUserId,
+    initialAssigneeId,
     initialReference,
     onClose,
 }: Props) {
@@ -79,13 +81,13 @@ export default function TaskModal({
             description: task?.description ?? "",
             type: task?.type ?? "follow_up",
             priority: task?.priority ?? "normal",
-            assignee_id: task?.assignee_id ?? currentUserId,
+            assignee_id: task?.assignee_id ?? initialAssigneeId ?? currentUserId,
             reference: task?.reference?.value ?? initialReference?.value,
             due_at: task
                 ? dayjs(task.due_at).tz(TIMEZONE)
                 : dayjs().tz(TIMEZONE).add(1, "day").startOf("hour"),
         });
-    }, [open, task, initialReference, currentUserId, form]);
+    }, [open, task, initialReference, currentUserId, initialAssigneeId, form]);
 
     useEffect(() => {
         if (!open) return;

@@ -1334,3 +1334,46 @@ button.crm-workbench__metric:not(:disabled):active {
         scroll-behavior: auto !important;
     }
 }
+
+/* Dashboard */
+.crm-dashboard { display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; gap: var(--crm-space-5); }
+.crm-dashboard > *, .crm-dashboard__metrics > * { min-width: 0; }
+.crm-dashboard__scope { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 20px; background: var(--crm-surface-panel); border: 1px solid var(--crm-border); border-radius: var(--crm-radius-md); }
+.crm-dashboard__scope > div:first-child { display: grid; gap: 4px; }
+.crm-dashboard__scope span, .crm-dashboard__hint, .crm-dashboard__updated { color: var(--crm-text-muted); font-size: var(--crm-font-sm); }
+.crm-dashboard__scope > .ant-select { width: 260px; flex-shrink: 0; }
+.crm-dashboard__metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.crm-dashboard__metric .ant-card-body { display: flex; flex-direction: column; gap: 12px; min-height: 164px; }
+.crm-dashboard__metric-top { display: flex; justify-content: space-between; gap: 8px; color: var(--crm-text-muted); }
+.crm-dashboard__metric-top > span:last-child { font-size: 20px; }
+.crm-dashboard__metric strong { font-size: 32px; line-height: 1.2; }
+.crm-dashboard__metric a { font-size: 13px; margin-top: auto; }
+.crm-dashboard__metric--red strong { color: var(--crm-error); }
+.crm-dashboard__metric--green strong { color: var(--crm-success); }
+.crm-dashboard__metric--amber strong { color: var(--crm-warning); }
+.crm-dashboard__panels { display: grid; grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr); gap: 24px; }
+.crm-dashboard__panels > .ant-card { min-width: 0; }
+.crm-dashboard__hint { margin: 0 0 16px; }
+.crm-dashboard__tasks, .crm-dashboard__statuses { list-style: none; margin: 0; padding: 0; }
+.crm-dashboard__tasks > li { display: flex; flex-direction: column; gap: 10px; padding: 16px 0; border-bottom: 1px solid var(--crm-border); }
+.crm-dashboard__tasks > li:last-child { border-bottom: 0; }
+.crm-dashboard__task-body, .crm-dashboard__member { display: grid; gap: 4px; }
+.crm-dashboard__task-body > a { font-weight: 600; overflow-wrap: anywhere; }
+.crm-dashboard__task-body > span, .crm-dashboard__member > span { color: var(--crm-text-muted); font-size: 13px; }
+.crm-dashboard__progress { display: flex; align-items: center; flex-direction: column; text-align: center; padding: 12px 0 20px; }
+.crm-dashboard__progress p { margin: 14px 0 2px; font-weight: 600; }
+.crm-dashboard__progress > span { color: var(--crm-text-muted); font-size: 12px; }
+.crm-dashboard__statuses > li { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-top: 1px solid var(--crm-border); }
+.crm-dashboard__updated { margin: 0; }
+@media (max-width: 991px) {
+    .crm-dashboard__panels { grid-template-columns: minmax(0, 1fr); }
+    .crm-dashboard__metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 575px) {
+    .crm-dashboard__scope { flex-direction: column; align-items: stretch; }
+    .crm-dashboard__scope > .ant-select { width: 100%; }
+    .crm-dashboard__metrics { gap: 10px; }
+    .crm-dashboard__metric .ant-card-body { padding: 14px; min-height: 156px; }
+    .crm-dashboard__metric-top { font-size: 13px; }
+    .crm-dashboard__metric strong { font-size: 28px; }
+}
