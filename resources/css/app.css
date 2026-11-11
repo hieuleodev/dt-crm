@@ -2454,6 +2454,7 @@ button.crm-workbench__metric:not(:disabled):active {
 .crm-dashboard__tasks > li:last-child { border-bottom: 0; }
 .crm-dashboard__task-body, .crm-dashboard__member { display: grid; gap: 4px; }
 .crm-dashboard__task-body > a { font-weight: 600; overflow-wrap: anywhere; }
+.crm-dashboard__task-body > .crm-dashboard__reference { color: var(--crm-text-muted); font-size: 13px; font-weight: 500; }
 .crm-dashboard__task-body > span, .crm-dashboard__member > span { color: var(--crm-text-muted); font-size: 13px; }
 .crm-dashboard__progress { display: flex; align-items: center; flex-direction: column; text-align: center; padding: 12px 0 20px; }
 .crm-dashboard__progress p { margin: 14px 0 2px; font-weight: 600; }

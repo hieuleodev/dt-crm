@@ -8,7 +8,7 @@ interface Props {
     currentDate: dayjs.Dayjs;
     tasks: TaskRow[];
     onSelectTask: (task: TaskRow) => void;
-    onCreateOnDate: (date: dayjs.Dayjs) => void;
+    onCreateOnDate?: (date: dayjs.Dayjs) => void;
 }
 
 const START_HOUR = 6;
@@ -101,7 +101,7 @@ export default function DayView({
                     {/* Content area */}
                     <div
                         className="crm-cal-day__content"
-                        onClick={(e) => {
+                        onClick={onCreateOnDate ? (e) => {
                             const rect = e.currentTarget.getBoundingClientRect();
                             const clickY = e.clientY - rect.top;
                             const totalMinutes = Math.floor(
@@ -117,7 +117,7 @@ export default function DayView({
                                 .minute(roundedMinute);
 
                             onCreateOnDate(targetDate);
-                        }}
+                        } : undefined}
                     >
                         {/* Red current time line */}
                         {isToday &&

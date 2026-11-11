@@ -8,6 +8,7 @@ use App\Models\Customer;
 use App\Models\User;
 use App\Services\Customer\SaveCustomer;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class CustomerTest extends TestCase
@@ -47,6 +48,39 @@ class CustomerTest extends TestCase
         $this->actingAs($sale1)->get("/customers/{$other->id}")->assertForbidden();
         $this->actingAs($sale1)->put("/customers/{$other->id}", ['name' => 'Đổi tên', 'lifecycle_stage' => 'prospect', 'status' => 'active'])->assertForbidden();
         $this->actingAs($sale1)->delete("/customers/{$mine->id}")->assertForbidden(); // nhân viên không được xóa
+    }
+
+    public function test_sales_cannot_create_task_reminders_from_customer_notes(): void
+    {
+        $sale = $this->user(UserRole::Sales);
+        $customer = $this->customer($sale);
+
+        $this->actingAs($sale)->post("/customers/{$customer->id}/notes", [
+            'create_reminder' => true,
+        ])->assertForbidden();
+
+        $this->assertDatabaseCount('customer_notes', 0);
+        $this->assertDatabaseCount('care_tasks', 0);
+    }
+
+    public function test_sales_can_still_add_customer_notes_without_reminders(): void
+    {
+        $sale = $this->user(UserRole::Sales);
+        $customer = $this->customer($sale);
+
+        $this->actingAs($sale)->post("/customers/{$customer->id}/notes", [
+            'request_id' => (string) Str::uuid(),
+            'body' => 'Đã trao đổi về nhu cầu tư vấn.',
+            'create_reminder' => false,
+        ])->assertRedirect();
+
+        $this->assertDatabaseHas('customer_notes', [
+            'customer_id' => $customer->id,
+            'created_by' => $sale->id,
+            'body' => 'Đã trao đổi về nhu cầu tư vấn.',
+            'task_id' => null,
+        ]);
+        $this->assertDatabaseCount('care_tasks', 0);
     }
 
     public function test_manager_sees_everything(): void

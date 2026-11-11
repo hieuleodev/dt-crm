@@ -624,6 +624,7 @@ export default function Show() {
                                     customerId={c.id}
                                     currentUserId={auth.user!.id}
                                     canCreate={can.update}
+                                    canCreateReminder={auth.user?.role !== "sales"}
                                 />
                             ),
                         },

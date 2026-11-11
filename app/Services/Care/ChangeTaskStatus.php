@@ -45,6 +45,7 @@ class ChangeTaskStatus
                 $task->completed_by = null;
                 $task->result = null;
             } else {
+                // Nhân viên chỉ đổi trạng thái việc đang mở; việc kết thúc phải có ghi chú.
                 $allowed = [
                     'pending' => ['in_progress', 'completed', 'cancelled'],
                     'in_progress' => ['pending', 'completed', 'cancelled'],

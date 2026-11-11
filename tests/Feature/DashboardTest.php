@@ -8,6 +8,7 @@ use App\Models\Lead;
 use App\Models\Task;
 use App\Models\User;
 use App\Services\Care\SaveTask;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -94,9 +95,74 @@ class DashboardTest extends TestCase
         $cancelled = $this->task($staff);
         $cancelled->update(['status' => 'cancelled']);
         $this->actingAs($staff)->get('/')->assertInertia(fn ($page) => $page
-            ->where('summary.today', 2)->where('summary.overdue', 1)
+            ->where('summary.today', 1)->where('summary.overdue', 1)
             ->where('summary.open', 3)->where('summary.completedToday', 1)
             ->where('statusCounts.2.total', 2)->where('statusCounts.3.total', 1));
+    }
+
+    // Kiểm tra nhiệm vụ chuyển nhóm ngay sau giờ hạn, không chỉ theo ngày.
+    public function test_task_today_and_overdue_buckets_follow_the_exact_due_time(): void
+    {
+        $staff = $this->user();
+        $this->travelTo(CarbonImmutable::parse('2026-11-10 10:00:00', 'Asia/Ho_Chi_Minh'));
+
+        $pastDue = $this->task($staff, ['due_at' => '2026-11-10T02:59:59Z']);
+        $dueNow = $this->task($staff, ['due_at' => '2026-11-10T03:00:00Z']);
+        $dueLater = $this->task($staff, ['due_at' => '2026-11-10T03:00:01Z']);
+        $this->task($staff, ['due_at' => '2026-11-10T17:00:00Z']);
+
+        $this->actingAs($staff)->get('/tasks?bucket=today')->assertOk()->assertInertia(fn ($page) => $page
+            ->where('summary.today', 2)->where('summary.overdue', 1)
+            ->has('tasks.data', 2)
+            ->where('tasks.data.0.id', $dueNow->id)
+            ->where('tasks.data.1.id', $dueLater->id));
+        $this->get('/tasks?bucket=overdue')->assertOk()->assertInertia(fn ($page) => $page
+            ->where('summary.today', 2)->where('summary.overdue', 1)
+            ->has('tasks.data', 1)->where('tasks.data.0.id', $pastDue->id));
+
+        $this->travelTo(CarbonImmutable::parse('2026-11-10 10:00:01', 'Asia/Ho_Chi_Minh'));
+        $this->get('/tasks?bucket=today')->assertOk()->assertInertia(fn ($page) => $page
+            ->where('summary.today', 1)->where('summary.overdue', 2)
+            ->has('tasks.data', 1)->where('tasks.data.0.id', $dueLater->id));
+        $this->get('/tasks?bucket=overdue')->assertOk()->assertInertia(fn ($page) => $page
+            ->where('summary.today', 1)->where('summary.overdue', 2)
+            ->has('tasks.data', 2)
+            ->where('tasks.data.0.id', $pastDue->id)
+            ->where('tasks.data.1.id', $dueNow->id));
+
+    }
+
+    public function test_staff_dashboard_prioritizes_overdue_and_today_tasks_with_their_customer_reference(): void
+    {
+        $staff = $this->user();
+        $customer = Customer::create([
+            'code' => 'DASH04',
+            'name' => 'Khách cần tư vấn',
+            'owner_id' => $staff->id,
+            'created_by' => $staff->id,
+            'lifecycle_stage' => 'prospect',
+            'status' => 'active',
+        ]);
+        $overdue = $this->task($staff, [
+            'due_at' => now('UTC')->subHour()->toIso8601String(),
+            'priority' => 'urgent',
+            'reference' => 'customer:'.$customer->id,
+        ]);
+        $today = $this->task($staff, [
+            'due_at' => now('UTC')->addHours(2)->toIso8601String(),
+            'priority' => 'high',
+        ]);
+        $upcoming = $this->task($staff, [
+            'due_at' => now('UTC')->addDay()->toIso8601String(),
+        ]);
+
+        $this->actingAs($staff)->get('/')->assertInertia(fn ($page) => $page
+            ->where('summary.overdue', 1)
+            ->where('summary.today', 1)
+            ->where('upcomingTasks.0.id', $overdue->id)
+            ->where('upcomingTasks.0.reference.label', 'DASH04 · Khách cần tư vấn')
+            ->where('upcomingTasks.1.id', $today->id)
+            ->where('upcomingTasks.2.id', $upcoming->id));
     }
 
     public function test_admin_can_assign_and_reassign_a_task_to_specific_staff(): void
@@ -115,14 +181,18 @@ class DashboardTest extends TestCase
         $this->actingAs($second)->get('/')->assertInertia(fn ($page) => $page->where('summary.open', 1));
     }
 
-    public function test_staff_cannot_assign_to_others_or_edit_their_tasks(): void
+    public function test_staff_cannot_create_tasks_or_edit_other_staff_tasks(): void
     {
         $first = $this->user();
         $second = $this->user();
+        $ownTask = $this->task($first);
         $otherTask = $this->task($second);
-        $this->actingAs($first)->post('/tasks', $this->payload($second))->assertSessionHasErrors('assignee_id');
-        $this->assertDatabaseCount('care_tasks', 1);
-        $this->put('/tasks/'.$otherTask->id, $this->payload($first, ['version' => 0]))->assertNotFound();
+
+        $this->actingAs($first)->post('/tasks', $this->payload($first))->assertForbidden();
+        $this->post('/tasks', $this->payload($second))->assertForbidden();
+        $this->assertDatabaseCount('care_tasks', 2);
+        $this->put('/tasks/'.$ownTask->id, $this->payload($first, ['version' => 0]))->assertForbidden();
+        $this->put('/tasks/'.$otherTask->id, $this->payload($first, ['version' => 0]))->assertForbidden();
         $this->patch('/tasks/'.$otherTask->id.'/status', ['status' => 'completed', 'note' => 'Done', 'version' => 0])->assertNotFound();
         $this->assertSame('pending', $otherTask->fresh()->status);
     }

@@ -109,6 +109,7 @@ class TaskController extends Controller
             $base->where('assignee_id', $filters['assignee_id']);
         }
 
+        // Hạn lưu UTC; quá hạn theo giờ thực tế, còn biên ngày theo giờ Việt Nam.
         $now = CarbonImmutable::now('UTC');
 
         $start = CarbonImmutable::now('Asia/Ho_Chi_Minh')
@@ -124,7 +125,8 @@ class TaskController extends Controller
 
             'today' => (clone $base)
                 ->whereIn('status', Task::OPEN_STATUSES)
-                ->where('due_at', '>=', $start)
+                // Qua giờ hạn thì chuyển sang nhóm quá hạn.
+                ->where('due_at', '>=', $now)
                 ->where('due_at', '<', $end)
                 ->count(),
 
@@ -141,7 +143,8 @@ class TaskController extends Controller
 
             'today' => $query
                 ->whereIn('status', Task::OPEN_STATUSES)
-                ->where('due_at', '>=', $start)
+                // Giữ bộ lọc danh sách khớp với bộ đếm hôm nay.
+                ->where('due_at', '>=', $now)
                 ->where('due_at', '<', $end),
 
             'overdue' => $query
@@ -231,6 +234,9 @@ class TaskController extends Controller
     ): RedirectResponse {
         $user = $this->actor($request);
 
+        // Sales chỉ nhận và cập nhật trạng thái công việc do quản lý giao.
+        abort_unless($user->isManager(), 403);
+
         $save->handle($this->validateTask($request, false), $user);
 
         return back()->with('success', 'Đã tạo nhiệm vụ.');
@@ -242,6 +248,9 @@ class TaskController extends Controller
         SaveTask $save,
     ): RedirectResponse {
         $user = $this->actor($request);
+
+        // Sales chỉ đổi trạng thái và kết quả qua endpoint cập nhật trạng thái.
+        abort_unless($user->isManager(), 403);
 
         Task::query()->visibleTo($user)->findOrFail($task);
 

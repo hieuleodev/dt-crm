@@ -61,6 +61,7 @@ interface Props {
     customerId: number;
     currentUserId: number;
     canCreate: boolean;
+    canCreateReminder: boolean;
 }
 
 const formatTime = (value: string) =>
@@ -70,6 +71,7 @@ export default function CustomerNotes({
     customerId,
     currentUserId,
     canCreate,
+    canCreateReminder,
 }: Props) {
     const [page, setPage] = useState(1);
     const [refresh, setRefresh] = useState(0);
@@ -178,7 +180,11 @@ export default function CustomerNotes({
             <div className="crm-customer-notes__toolbar">
                 <div>
                     <h2>Ghi chú khách hàng</h2>
-                    <p>Lưu lịch sử trao đổi và đặt việc cần theo dõi.</p>
+                    <p>
+                        {canCreateReminder
+                            ? "Lưu lịch sử trao đổi và đặt việc cần theo dõi."
+                            : "Lưu lịch sử trao đổi với khách hàng."}
+                    </p>
                 </div>
 
                 <div className="crm-customer-notes__actions">
@@ -241,18 +247,20 @@ export default function CustomerNotes({
                         />
                     </Form.Item>
 
-                    <Form.Item label="Tạo nhiệm vụ nhắc việc">
-                        <Switch
-                            checked={form.data.create_reminder}
-                            checkedChildren="Có"
-                            unCheckedChildren="Không"
-                            onChange={(checked) =>
-                                form.setData("create_reminder", checked)
-                            }
-                        />
-                    </Form.Item>
+                    {canCreateReminder && (
+                        <Form.Item label="Tạo nhiệm vụ nhắc việc">
+                            <Switch
+                                checked={form.data.create_reminder}
+                                checkedChildren="Có"
+                                unCheckedChildren="Không"
+                                onChange={(checked) =>
+                                    form.setData("create_reminder", checked)
+                                }
+                            />
+                        </Form.Item>
+                    )}
 
-                    {form.data.create_reminder && (
+                    {canCreateReminder && form.data.create_reminder && (
                         <div className="crm-customer-notes__reminder-form">
                             <Form.Item
                                 label="Tên việc cần nhắc"

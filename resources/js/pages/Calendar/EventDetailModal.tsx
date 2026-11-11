@@ -74,7 +74,7 @@ export default function EventDetailModal({
                     <Space wrap>
                         {isOpen && (
                             <>
-                                <Button
+                                {isManager && <Button
                                     icon={<EditOutlined />}
                                     onClick={() => {
                                         onClose();
@@ -82,7 +82,7 @@ export default function EventDetailModal({
                                     }}
                                 >
                                     Chỉnh sửa
-                                </Button>
+                                </Button>}
 
                                 <Button
                                     icon={<SyncOutlined />}

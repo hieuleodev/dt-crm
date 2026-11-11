@@ -8,7 +8,7 @@ interface Props {
     currentDate: dayjs.Dayjs;
     tasks: TaskRow[];
     onSelectTask: (task: TaskRow) => void;
-    onCreateOnDate: (date: dayjs.Dayjs) => void;
+    onCreateOnDate?: (date: dayjs.Dayjs) => void;
     onOpenDayModal: (date: dayjs.Dayjs, dayTasks: TaskRow[]) => void;
 }
 
@@ -100,7 +100,7 @@ export default function MonthView({
                                     }`}
                                     onClick={(e) => {
                                         // Only trigger create if clicking directly on cell background
-                                        if (e.target === e.currentTarget) {
+                                        if (onCreateOnDate && e.target === e.currentTarget) {
                                             onCreateOnDate(date.hour(9).minute(0));
                                         }
                                     }}
@@ -120,7 +120,7 @@ export default function MonthView({
                                                 : date.date()}
                                         </button>
 
-                                        <button
+                                        {onCreateOnDate && <button
                                             type="button"
                                             className="crm-cal-month__add-btn"
                                             title="Tạo nhiệm vụ ngày này"
@@ -130,7 +130,7 @@ export default function MonthView({
                                             }}
                                         >
                                             <PlusOutlined />
-                                        </button>
+                                        </button>}
                                     </div>
 
                                     {/* Event chips */}
