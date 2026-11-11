@@ -18,6 +18,7 @@ class SaveLeadRequest extends FormRequest
 
         $lead = $this->route('lead');
 
+        // Nhân viên chỉ sửa hồ sơ của mình; không thể đổi người phụ trách hay loại bản ghi.
         if ($lead instanceof Lead) {
             return $user->isManager()
                 || $lead->owner_id === $user->id;
@@ -78,6 +79,7 @@ class SaveLeadRequest extends FormRequest
 
             'notes' => ['nullable', 'string', 'max:5000'],
 
+            // Không nhận metadata để tránh đổi owner/loại ngoài luồng nghiệp vụ riêng.
             'owner_id' => ['prohibited'],
             'kind' => ['prohibited'],
             'converted_at' => ['prohibited'],

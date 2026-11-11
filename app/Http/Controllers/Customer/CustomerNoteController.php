@@ -110,6 +110,9 @@ class CustomerNoteController extends Controller
 
         $createReminder = $request->boolean('create_reminder');
 
+        // Sales vẫn được ghi chú nhưng chỉ quản lý mới được tạo nhiệm vụ nhắc việc.
+        abort_unless(! $createReminder || $user->isManager(), 403);
+
         $data = $request->validate([
             'request_id' => ['required', 'uuid'],
             'body' => ['required', 'string', 'max:5000'],

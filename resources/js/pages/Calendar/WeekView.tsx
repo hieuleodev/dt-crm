@@ -7,7 +7,7 @@ interface Props {
     currentDate: dayjs.Dayjs;
     tasks: TaskRow[];
     onSelectTask: (task: TaskRow) => void;
-    onCreateOnDate: (date: dayjs.Dayjs) => void;
+    onCreateOnDate?: (date: dayjs.Dayjs) => void;
 }
 
 // Hours to display in the grid: 07:00 to 21:00 (15 hours)
@@ -144,7 +144,7 @@ export default function WeekView({
                                     className={`crm-cal-week__col ${
                                         isToday ? "crm-cal-week__col--today" : ""
                                     }`}
-                                    onClick={(e) => {
+                                    onClick={onCreateOnDate ? (e) => {
                                         // Calculate clicked hour based on click position
                                         const rect = e.currentTarget.getBoundingClientRect();
                                         const clickY = e.clientY - rect.top;
@@ -161,7 +161,7 @@ export default function WeekView({
                                             .minute(roundedMinute);
 
                                         onCreateOnDate(targetDate);
-                                    }}
+                                    } : undefined}
                                 >
                                     {/* Red current-time line indicator (if today) */}
                                     {isToday &&

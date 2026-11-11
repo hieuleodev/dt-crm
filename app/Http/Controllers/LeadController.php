@@ -89,6 +89,7 @@ class LeadController extends Controller
     {
         $lead = new Lead($request->validated());
 
+        // Lead mới do nhân viên tạo luôn thuộc về chính người tạo.
         $lead->owner_id = $request->user()->id;
         $lead->kind = 'lead';
 

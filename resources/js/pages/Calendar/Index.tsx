@@ -185,6 +185,9 @@ export default function CalendarIndex() {
 
     // Action helpers
     function openCreate(initialDueAt?: dayjs.Dayjs) {
+        // Sales chỉ xem lịch và cập nhật trạng thái nhiệm vụ được giao.
+        if (!isManager) return;
+
         setEditor({
             open: true,
             task: null,
@@ -193,6 +196,8 @@ export default function CalendarIndex() {
     }
 
     function openEdit(task: TaskRow) {
+        if (!isManager) return;
+
         setEditor({
             open: true,
             task,
@@ -290,14 +295,14 @@ export default function CalendarIndex() {
                             ]}
                         />
 
-                        <Button
+                        {isManager && <Button
                             type="primary"
                             icon={<PlusOutlined />}
                             onClick={() => openCreate()}
                             className="crm-cal-create-btn"
                         >
                             Tạo lịch trình
-                        </Button>
+                        </Button>}
                     </div>
                 </div>
 
@@ -350,7 +355,7 @@ export default function CalendarIndex() {
                             currentDate={currentDate}
                             tasks={tasks}
                             onSelectTask={(task) => setDetailTask(task)}
-                            onCreateOnDate={(date) => openCreate(date)}
+                            onCreateOnDate={isManager ? (date) => openCreate(date) : undefined}
                             onOpenDayModal={(date, dayTasks) =>
                                 setDayModal({ date, tasks: dayTasks })
                             }
@@ -362,7 +367,7 @@ export default function CalendarIndex() {
                             currentDate={currentDate}
                             tasks={tasks}
                             onSelectTask={(task) => setDetailTask(task)}
-                            onCreateOnDate={(date) => openCreate(date)}
+                            onCreateOnDate={isManager ? (date) => openCreate(date) : undefined}
                         />
                     )}
 
@@ -371,17 +376,18 @@ export default function CalendarIndex() {
                             currentDate={currentDate}
                             tasks={tasks}
                             onSelectTask={(task) => setDetailTask(task)}
-                            onCreateOnDate={(date) => openCreate(date)}
+                            onCreateOnDate={isManager ? (date) => openCreate(date) : undefined}
                         />
                     )}
 
+                    {/* Sales can update task status, but only managers can edit task details. */}
                     {view === "agenda" && (
                         <AgendaView
                             tasks={tasks}
                             options={options}
                             onSelectTask={(task) => setDetailTask(task)}
-                            onCreateOnDate={(date) => openCreate(date)}
-                            onEdit={(task) => openEdit(task)}
+                            onCreateOnDate={isManager ? (date) => openCreate(date) : undefined}
+                            onEdit={isManager ? (task) => openEdit(task) : undefined}
                             onChangeStatus={(task, nextStatus) =>
                                 openStatusChange(task, nextStatus)
                             }
@@ -409,20 +415,22 @@ export default function CalendarIndex() {
                 options={options}
                 onClose={() => setDayModal({ date: null, tasks: [] })}
                 onSelectTask={(task) => setDetailTask(task)}
-                onCreateOnDate={(date) => openCreate(date)}
+                onCreateOnDate={isManager ? (date) => openCreate(date) : undefined}
             />
 
             {/* Create/Edit Task Modal */}
-            <TaskModal
-                open={editor.open}
-                task={editor.task}
-                options={options}
-                assignees={assignees}
-                currentUserId={auth.user!.id}
-                initialReference={null}
-                initialDueAt={editor.initialDueAt}
-                onClose={() => setEditor({ open: false, task: null, initialDueAt: null })}
-            />
+            {isManager && (
+                <TaskModal
+                    open={editor.open}
+                    task={editor.task}
+                    options={options}
+                    assignees={assignees}
+                    currentUserId={auth.user!.id}
+                    initialReference={null}
+                    initialDueAt={editor.initialDueAt}
+                    onClose={() => setEditor({ open: false, task: null, initialDueAt: null })}
+                />
+            )}
 
             {/* Task Status Transition Modal */}
             <TaskStatusModal
