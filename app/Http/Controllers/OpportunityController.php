@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\Opportunities\SaveOpportunityRequest;
+use App\Models\AuditLog;
 use App\Models\Customer;
 use App\Models\Lead;
 use App\Models\Task;
@@ -11,6 +12,7 @@ use App\Services\Customer\DataCompleteness;
 use App\Services\Customer\SaveCustomer;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -136,6 +138,11 @@ class OpportunityController extends Controller
         return Inertia::render('Opportunities/Index', [
             'opportunities' => $opportunities,
             'board' => $board,
+            'stageHistory' => $this->stageHistory(
+                collect($board)->flatten(1)->pluck('id')
+                    ->merge($opportunities->getCollection()->pluck('id'))
+                    ->unique()->values()->all(),
+            ),
             'filters' => [
                 'q' => $q,
                 'stage' => $stage,
@@ -153,6 +160,33 @@ class OpportunityController extends Controller
             ],
             'summary' => $summary,
         ]);
+    }
+
+    /**
+     * @param  list<int>  $opportunityIds
+     * @return array<int, list<array{id: int, from: ?string, to: string, by: string, at: ?string, reason: ?string}>>
+     */
+    private function stageHistory(array $opportunityIds): array
+    {
+        return AuditLog::query()
+            ->with('user:id,name')
+            ->whereIn('auditable_type', AuditLog::typesFor(Lead::class))
+            ->whereIn('auditable_id', $opportunityIds)
+            ->whereIn('event', ['created', 'updated'])
+            ->whereIn('new_values->stage', array_keys(Lead::STAGES['opportunity']))
+            ->orderByDesc('id')
+            ->get()
+            ->filter(fn (AuditLog $log): bool => ($log->old_values['stage'] ?? null) !== $log->new_values['stage'])
+            ->groupBy('auditable_id')
+            ->map(fn (Collection $logs): array => $logs->map(fn (AuditLog $log): array => [
+                'id' => $log->id,
+                'from' => $log->old_values['stage'] ?? null,
+                'to' => $log->new_values['stage'],
+                'by' => $log->user?->name ?? 'Hệ thống',
+                'at' => $log->created_at?->toIso8601String(),
+                'reason' => $log->new_values['stage'] === 'lost' ? ($log->new_values['lost_reason'] ?? null) : null,
+            ])->values()->all())
+            ->all();
     }
 
     public function store(SaveOpportunityRequest $request): RedirectResponse

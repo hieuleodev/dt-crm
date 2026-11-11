@@ -18,6 +18,7 @@ import {
     Statistic,
     Table,
     Tag,
+    Timeline,
     Typography,
 } from "antd";
 import type { TableColumnsType } from "antd";
@@ -26,6 +27,7 @@ import {
     CheckSquareOutlined,
     DeleteOutlined,
     EditOutlined,
+    HistoryOutlined,
     PlusOutlined,
     TableOutlined,
     UserAddOutlined,
@@ -91,6 +93,15 @@ interface StageMetric {
     value: string;
 }
 
+interface StageHistoryEntry {
+    id: number;
+    from: string | null;
+    to: string;
+    by: string;
+    at: string | null;
+    reason: string | null;
+}
+
 interface Props extends PageProps {
     opportunities: {
         data: Opportunity[];
@@ -99,6 +110,7 @@ interface Props extends PageProps {
         total: number;
     };
     board: Record<string, Opportunity[]>;
+    stageHistory: Record<number, StageHistoryEntry[]>;
     filters: Filters;
     stages: Record<string, string>;
     stageProbabilities: Record<string, number>;
@@ -144,6 +156,7 @@ const money = new Intl.NumberFormat("vi-VN", {
 export default function Index({
     opportunities,
     board = {},
+    stageHistory = {},
     filters,
     stages,
     stageProbabilities,
@@ -158,6 +171,7 @@ export default function Index({
     const { message } = App.useApp();
 
     const [viewMode, setViewMode] = useState<ViewMode>("kanban");
+    const [historyOpportunity, setHistoryOpportunity] = useState<Opportunity | null>(null);
     const [search, setSearch] = useState(filters.q);
     const [loading, setLoading] = useState(false);
     const [modalOpen, setModalOpen] = useState(false);
@@ -467,6 +481,34 @@ export default function Index({
 
     const todayStr = dayjs().format("YYYY-MM-DD");
 
+    function stageTimestamp(opp: Opportunity) {
+        const latestEntry = stageHistory[opp.id]?.[0];
+        if (!latestEntry?.at || latestEntry.to !== opp.stage) return null;
+
+        return (
+            <Typography.Text type="secondary" style={{ display: "block", fontSize: 12, marginTop: 4 }}>
+                Chuyển lúc: {dayjs(latestEntry.at).format("DD/MM/YYYY HH:mm:ss")}
+            </Typography.Text>
+        );
+    }
+
+    function historyButton(opp: Opportunity) {
+        const latestEntry = stageHistory[opp.id]?.[0];
+
+        return (
+            <Button
+                size="small"
+                icon={<HistoryOutlined />}
+                title={latestEntry?.at
+                    ? `Chuyển gần nhất: ${dayjs(latestEntry.at).format("DD/MM/YYYY HH:mm:ss")}`
+                    : "Xem lịch sử chuyển giai đoạn"}
+                onClick={() => setHistoryOpportunity(opp)}
+            >
+                Lịch sử ({stageHistory[opp.id]?.length ?? 0})
+            </Button>
+        );
+    }
+
     const columns: TableColumnsType<Opportunity> = [
         {
             title: "Thương vụ / Khách hàng",
@@ -518,6 +560,8 @@ export default function Index({
                                 {prob}%
                             </Typography.Text>
                         </Space>
+
+                        {stageTimestamp(opp)}
 
                         {opp.stage === "lost" && opp.lost_reason && (
                             <Typography.Text
@@ -617,6 +661,7 @@ export default function Index({
             width: 330,
             render: (_, opp) => (
                 <Space wrap>
+                    {historyButton(opp)}
                     <Button
                         icon={<EditOutlined />}
                         onClick={() => openEdit(opp)}
@@ -1072,6 +1117,7 @@ export default function Index({
                                                                                 )
                                                                             }
                                                                         />
+                                                                        {stageTimestamp(opp)}
                                                                     </div>
 
                                                                     <div className="crm-kanban__card-actions">
@@ -1088,6 +1134,7 @@ export default function Index({
                                                                         >
                                                                             Sửa
                                                                         </Button>
+                                                                        {historyButton(opp)}
                                                                         <Button
                                                                             size="small"
                                                                             className="crm-btn-action--task"
@@ -1204,6 +1251,43 @@ export default function Index({
                     )}
                 </Card>
             </div>
+
+            <Modal
+                title={`Lịch sử giai đoạn · ${historyOpportunity?.title ?? ""}`}
+                open={historyOpportunity !== null}
+                onCancel={() => setHistoryOpportunity(null)}
+                footer={null}
+                width={640}
+            >
+                <Typography.Paragraph type="secondary">
+                    Thời gian hiển thị theo múi giờ thiết bị. Các lần chuyển mới nhất ở trên cùng.
+                </Typography.Paragraph>
+                {historyOpportunity && stageHistory[historyOpportunity.id]?.length ? (
+                    <Timeline
+                        items={stageHistory[historyOpportunity.id].map((entry) => ({
+                            key: entry.id,
+                            color: entry.to === "won" ? "green" : entry.to === "lost" ? "red" : "blue",
+                            title: entry.at ? dayjs(entry.at).format("DD/MM/YYYY HH:mm:ss") : "Chưa có thời gian",
+                            content: (
+                                <div>
+                                    <Typography.Text strong>
+                                        {entry.from ? (stages[entry.from] ?? (entry.from === "qualified" ? "Lead đủ điều kiện" : entry.from)) : "Tạo cơ hội"}
+                                        {" → "}{stages[entry.to] ?? entry.to}
+                                    </Typography.Text>
+                                    <div>Thực hiện: {entry.by}</div>
+                                    {entry.reason && (
+                                        <Typography.Text type="secondary">
+                                            Lý do: {lostReasons[entry.reason] ?? entry.reason}
+                                        </Typography.Text>
+                                    )}
+                                </div>
+                            ),
+                        }))}
+                    />
+                ) : (
+                    <Empty description="Chưa có lịch sử chuyển giai đoạn được ghi nhận." />
+                )}
+            </Modal>
 
             <Modal
                 title="Xác nhận xóa Cơ hội kinh doanh"

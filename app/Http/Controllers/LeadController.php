@@ -6,6 +6,7 @@ use App\Http\Requests\Leads\SaveLeadRequest;
 use App\Models\Lead;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -118,20 +119,29 @@ class LeadController extends Controller
             403,
         );
 
-        $updated = Lead::query()
-            ->visibleTo($user)
-            ->whereKey($lead->id)
-            ->where('kind', 'lead')
-            ->where('stage', 'qualified')
-            ->update([
+        $updated = DB::transaction(function () use ($user, $lead): bool {
+            $qualifiedLead = Lead::query()
+                ->visibleTo($user)
+                ->whereKey($lead->id)
+                ->where('kind', 'lead')
+                ->where('stage', 'qualified')
+                ->lockForUpdate()
+                ->first();
+
+            if (! $qualifiedLead) {
+                return false;
+            }
+
+            return $qualifiedLead->forceFill([
                 'kind' => 'opportunity',
                 'stage' => 'proposal',
                 'probability' => Lead::STAGE_PROBABILITIES['proposal'],
                 'converted_at' => now(),
                 'updated_at' => now(),
-            ]);
+            ])->save();
+        });
 
-        if ($updated === 0) {
+        if (! $updated) {
             return back()->with(
                 'error',
                 'Chỉ Lead đủ điều kiện và chưa chuyển đổi mới có thể tạo Cơ hội.',
