@@ -11,7 +11,7 @@ interface Props {
     options: TaskOptions;
     onClose: () => void;
     onSelectTask: (task: TaskRow) => void;
-    onCreateOnDate: (date: dayjs.Dayjs) => void;
+    onCreateOnDate?: (date: dayjs.Dayjs) => void;
 }
 
 export default function DayEventsModal({
@@ -40,7 +40,7 @@ export default function DayEventsModal({
                             {tasks.length} nhiệm vụ / lịch trình
                         </Typography.Text>
                     </div>
-                    <Button
+                    {onCreateOnDate && <Button
                         type="primary"
                         size="small"
                         icon={<PlusOutlined />}
@@ -50,7 +50,7 @@ export default function DayEventsModal({
                         }}
                     >
                         Tạo lịch
-                    </Button>
+                    </Button>}
                 </div>
             }
             footer={[

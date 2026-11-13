@@ -77,6 +77,7 @@ export default function Index() {
         timezone,
     } = usePage<Props>().props;
 
+    // Sales chỉ xử lý trạng thái/kết quả của nhiệm vụ đã được giao.
     const isManager = Boolean(auth.user && auth.user.role !== "sales");
 
     const [q, setQ] = useState(filters.q);
@@ -164,7 +165,7 @@ export default function Index() {
 
         const items: MenuProps["items"] = open
             ? [
-                  { key: "edit", label: "Chỉnh sửa" },
+                  ...(isManager ? [{ key: "edit", label: "Chỉnh sửa" }] : []),
                   ...(task.status === "in_progress"
                       ? [{ key: "pending", label: "Chuyển về chờ" }]
                       : []),
@@ -181,7 +182,7 @@ export default function Index() {
         return {
             items,
             onClick: ({ key }) => {
-                if (key === "edit") {
+                if (key === "edit" && isManager) {
                     setEditor({ open: true, task });
                 } else if (key === "pending" || key === "cancelled") {
                     changeStatus(task, key);
@@ -248,15 +249,17 @@ export default function Index() {
                                 Làm mới
                             </Button>
 
-                            <Button
-                                type="primary"
-                                icon={<PlusOutlined />}
-                                onClick={() =>
-                                    setEditor({ open: true, task: null })
-                                }
-                            >
-                                Tạo nhiệm vụ
-                            </Button>
+                            {isManager && (
+                                <Button
+                                    type="primary"
+                                    icon={<PlusOutlined />}
+                                    onClick={() =>
+                                        setEditor({ open: true, task: null })
+                                    }
+                                >
+                                    Giao nhiệm vụ
+                                </Button>
+                            )}
                         </>
                     }
                 />
@@ -649,15 +652,17 @@ export default function Index() {
                 </section>
             </div>
 
-            <TaskModal
-                open={editor.open}
-                task={editor.task}
-                options={options}
-                assignees={assignees}
-                currentUserId={auth.user!.id}
-                initialReference={null}
-                onClose={() => setEditor({ open: false, task: null })}
-            />
+            {isManager && (
+                <TaskModal
+                    open={editor.open}
+                    task={editor.task}
+                    options={options}
+                    assignees={assignees}
+                    currentUserId={auth.user!.id}
+                    initialReference={null}
+                    onClose={() => setEditor({ open: false, task: null })}
+                />
+            )}
 
             <TaskStatusModal
                 task={transition?.task ?? null}

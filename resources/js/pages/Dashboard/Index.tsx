@@ -34,11 +34,10 @@ interface Props extends PageProps {
     team: TeamMember[];
     assignees: TaskAssignee[];
     options: TaskOptions;
-    generatedAt: string;
 }
 
 export default function Index() {
-    const { auth, canAssign, filters, summary, statusCounts, upcomingTasks, team, assignees, options, generatedAt } = usePage<Props>().props;
+    const { auth, canAssign, filters, summary, statusCounts, upcomingTasks, team, assignees, options } = usePage<Props>().props;
     const [editor, setEditor] = useState<{ assigneeId?: number } | null>(null);
     const [filtering, setFiltering] = useState(false);
     const taskUrl = (bucket = "open", assigneeId = filters.assignee_id) =>
@@ -49,9 +48,9 @@ export default function Index() {
     const actionable = totalTasks - cancelled;
     const percent = actionable ? Math.round(completed / actionable * 100) : 0;
     const metrics = [
-        { key: "customers", label: "Khách hàng", value: summary.customers, icon: <TeamOutlined />, tone: "blue" },
-        { key: "leads", label: "Lead", value: summary.leads, icon: <SolutionOutlined />, tone: "blue" },
-        { key: "open", label: "Việc chưa hoàn thành", value: summary.open, icon: <UnorderedListOutlined />, tone: "neutral", href: taskUrl() },
+        { key: "customers", label: canAssign ? "Khách hàng" : "Khách hàng phụ trách", value: summary.customers, icon: <TeamOutlined />, tone: "blue", href: "/customers" },
+        { key: "leads", label: canAssign ? "Lead" : "Lead phụ trách", value: summary.leads, icon: <SolutionOutlined />, tone: "blue", href: "/leads?kind=lead" },
+        { key: "open", label: canAssign ? "Việc chưa hoàn thành" : "Nhiệm vụ được giao", value: summary.open, icon: <UnorderedListOutlined />, tone: "neutral", href: taskUrl() },
         { key: "today", label: "Việc đến hạn hôm nay", value: summary.today, icon: <ClockCircleOutlined />, tone: "amber", href: taskUrl("today") },
         { key: "overdue", label: "Việc quá hạn", value: summary.overdue, icon: <WarningOutlined />, tone: "red", href: taskUrl("overdue") },
         { key: "completed", label: "Hoàn thành hôm nay", value: summary.completedToday, icon: <CheckCircleOutlined />, tone: "green" },
@@ -69,15 +68,18 @@ export default function Index() {
         <AppLayout>
             <Head title="Tổng quan" />
             <div className="crm-dashboard">
-                <PageHeader title={canAssign ? "Tổng quan quản trị" : "Tổng quan của tôi"}
+                <PageHeader title={canAssign ? "Tổng quan quản trị" : "Tổng quan"}
                     subtitle={`Xin chào, ${auth.user?.name}. ${canAssign ? "Theo dõi tiến độ và phân công công việc cho đội ngũ." : "Theo dõi khách hàng và các nhiệm vụ bạn phụ trách."}`}
-                    extra={<Button type="primary" icon={<PlusOutlined />} onClick={() => setEditor({ assigneeId: filters.assignee_id ?? undefined })}>{canAssign ? "Giao nhiệm vụ" : "Tạo nhiệm vụ"}</Button>} />
+                    extra={canAssign && <Button type="primary" icon={<PlusOutlined />} onClick={() => setEditor({ assigneeId: filters.assignee_id ?? undefined })}>Giao nhiệm vụ</Button>} />
 
-                <div className="crm-dashboard__scope">
-                    <div><strong>{canAssign ? "Phạm vi số liệu" : "Dữ liệu cá nhân"}</strong><span>{canAssign ? "Lọc các chỉ số và danh sách việc theo người phụ trách." : "Chỉ hiển thị dữ liệu bạn được phép truy cập."}</span></div>
-                    {canAssign && <Select aria-label="Phạm vi tổng quan" placeholder="Toàn bộ đội ngũ" allowClear showSearch optionFilterProp="label" loading={filtering} disabled={filtering} value={filters.assignee_id ?? undefined} options={assignees.map((member) => ({ value: member.id, label: member.name }))}
-                        onChange={(value) => router.get("/", value ? { assignee_id: value } : {}, { preserveScroll: true, preserveState: true, onStart: () => setFiltering(true), onFinish: () => setFiltering(false) })} />}
-                </div>
+                {/* Chỉ quản lý xem bộ lọc đội ngũ và thống kê phân công. */}
+                {canAssign && (
+                    <div className="crm-dashboard__scope">
+                        <div><strong>Phạm vi số liệu</strong><span>Lọc các chỉ số và danh sách việc theo người phụ trách.</span></div>
+                        <Select aria-label="Phạm vi tổng quan" placeholder="Toàn bộ đội ngũ" allowClear showSearch optionFilterProp="label" loading={filtering} disabled={filtering} value={filters.assignee_id ?? undefined} options={assignees.map((member) => ({ value: member.id, label: member.name }))}
+                            onChange={(value) => router.get("/", value ? { assignee_id: value } : {}, { preserveScroll: true, preserveState: true, onStart: () => setFiltering(true), onFinish: () => setFiltering(false) })} />
+                    </div>
+                )}
 
                 <div className="crm-dashboard__metrics">
                     {metrics.map((metric) => <Card key={metric.key} className={`crm-dashboard__metric crm-dashboard__metric--${metric.tone}`}>
@@ -88,12 +90,20 @@ export default function Index() {
                 </div>
 
                 <div className="crm-dashboard__panels">
-                    <Card title="Việc cần ưu tiên" extra={<Link href={taskUrl()}>Xem tất cả</Link>}>
-                        <p className="crm-dashboard__hint">Các việc chưa hoàn thành, sắp xếp theo hạn xử lý gần nhất; việc quá hạn đứng trước.</p>
+                    <Card title={canAssign ? "Việc cần ưu tiên" : "Công việc được giao"} extra={<Link href={taskUrl()}>Xem tất cả</Link>}>
+                        {canAssign && <p className="crm-dashboard__hint">Các việc chưa hoàn thành, sắp xếp theo hạn xử lý gần nhất; việc quá hạn đứng trước.</p>}
                         {upcomingTasks.length ? <ul className="crm-dashboard__tasks">{upcomingTasks.map((task) => <li key={task.id}>
-                            <div className="crm-dashboard__task-body"><Link href={taskUrl("open", task.assignee_id)}>{task.title}</Link><span>{task.assignee} · {dayjs(task.due_at).tz("Asia/Ho_Chi_Minh").format("DD/MM/YYYY HH:mm")}</span></div>
+                            <div className="crm-dashboard__task-body">
+                                <Link href={taskUrl("open", task.assignee_id)}>{task.title}</Link>
+                                {task.reference && (
+                                    task.reference.href
+                                        ? <Link className="crm-dashboard__reference" href={task.reference.href}>{task.reference.label}</Link>
+                                        : <span>{task.reference.label}</span>
+                                )}
+                                <span>{canAssign ? `${task.assignee} · ` : ""}{dayjs(task.due_at).tz("Asia/Ho_Chi_Minh").format("DD/MM/YYYY HH:mm")}</span>
+                            </div>
                             <Space wrap>{task.overdue && <Tag color="red">Quá hạn</Tag>}<Tag color={task.priority === "urgent" ? "red" : task.priority === "high" ? "orange" : "default"}>{options.priorities[task.priority]}</Tag><Tag color={task.status === "in_progress" ? "blue" : "default"}>{options.statuses[task.status]}</Tag></Space>
-                        </li>)}</ul> : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Không có nhiệm vụ cần xử lý trong phạm vi này." />}
+                        </li>)}</ul> : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={canAssign ? "Không có nhiệm vụ cần xử lý trong phạm vi này." : "Chưa có công việc được giao. Quản lý sẽ phân công công việc cho bạn."} />}
                     </Card>
                     <Card title="Tiến độ công việc">
                         <div className="crm-dashboard__progress"><Progress type="circle" percent={percent} size={128} strokeColor="#237545" /><p>{completed} / {actionable} việc đã hoàn thành</p><span>Không tính nhiệm vụ đã hủy · Toàn thời gian</span></div>
@@ -106,9 +116,8 @@ export default function Index() {
                     <Table<TeamMember> rowKey="id" columns={columns} dataSource={team} scroll={{ x: 850 }} pagination={{ pageSize: 5, showSizeChanger: false, hideOnSinglePage: true }} locale={{ emptyText: "Chưa có tài khoản đang hoạt động." }} />
                 </Card>}
 
-                <p className="crm-dashboard__updated">Số liệu tại {dayjs(generatedAt).tz("Asia/Ho_Chi_Minh").format("HH:mm · DD/MM/YYYY")} (giờ Việt Nam). Hôm nay tính từ 00:00; các chỉ số không ghi thời gian tính trên toàn bộ dữ liệu trong phạm vi.</p>
             </div>
-            <TaskModal open={editor !== null} task={null} options={options} assignees={assignees} currentUserId={auth.user!.id} initialAssigneeId={editor?.assigneeId} initialReference={null} onClose={() => setEditor(null)} />
+            {canAssign && <TaskModal open={editor !== null} task={null} options={options} assignees={assignees} currentUserId={auth.user!.id} initialAssigneeId={editor?.assigneeId} initialReference={null} onClose={() => setEditor(null)} />}
         </AppLayout>
     );
 }

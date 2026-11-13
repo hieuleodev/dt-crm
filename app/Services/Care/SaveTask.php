@@ -57,6 +57,7 @@ class SaveTask
                     ? Customer::query()
                     : Lead::query();
 
+                // Người thực hiện phải truy cập được hồ sơ gắn với nhiệm vụ.
                 $target = $query
                     ->visibleTo($actor)
                     ->lockForUpdate()

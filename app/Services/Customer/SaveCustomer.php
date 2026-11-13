@@ -29,9 +29,11 @@ class SaveCustomer
                     ? $data['code']
                     : $this->nextCode();
 
+                // Hồ sơ Sales tự tạo mặc định thuộc về chính họ.
                 $data['owner_id'] ??= $actor->id;
                 $data['lifecycle_stage'] ??= 'prospect';
             } else {
+                // Không cho sửa hồ sơ đồng thời chuyển người phụ trách.
                 unset($data['owner_id']);
                 if (blank($data['code'] ?? null)) {
                     unset($data['code']);

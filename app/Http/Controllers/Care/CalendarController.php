@@ -81,6 +81,7 @@ class CalendarController extends Controller
 
         $base = Task::query()->visibleTo($user);
 
+        // Sales chỉ xem lịch của mình; quản lý mới xem toàn đội hoặc lọc nhân viên.
         if ($user->isManager() && ! empty($filters['assignee_id'])) {
             $base->where('assignee_id', $filters['assignee_id']);
         } elseif (! $user->isManager()) {

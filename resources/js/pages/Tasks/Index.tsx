@@ -78,6 +78,7 @@ export default function Index() {
         auth,
     } = usePage<Props>().props;
 
+    // Chỉ quản lý sửa nội dung; Sales cập nhật trạng thái qua thao tác riêng.
     const isManager = auth.user?.role !== "sales";
 
     const [q, setQ] = useState(filters.q ?? "");
@@ -268,13 +269,15 @@ export default function Index() {
                     <Space wrap>
                         {open && (
                             <>
-                                <Button
-                                    onClick={() =>
-                                        setEditor({ open: true, task })
-                                    }
-                                >
-                                    Chỉnh sửa
-                                </Button>
+                                {isManager && (
+                                    <Button
+                                        onClick={() =>
+                                            setEditor({ open: true, task })
+                                        }
+                                    >
+                                        Chỉnh sửa
+                                    </Button>
+                                )}
 
                                 <Button
                                     onClick={() =>
@@ -347,7 +350,7 @@ export default function Index() {
                 <PageHeader
                     title="Nhiệm vụ"
                     subtitle="Theo dõi việc cần làm, hạn xử lý và kết quả thực hiện."
-                    extra={
+                    extra={isManager && (
                         <Button
                             type="primary"
                             icon={<PlusOutlined />}
@@ -357,7 +360,7 @@ export default function Index() {
                         >
                             Tạo nhiệm vụ
                         </Button>
-                    }
+                    )}
                 />
 
                 <div className="crm-task-summary">
@@ -486,15 +489,17 @@ export default function Index() {
                 </Card>
             </div>
 
-            <TaskModal
-                open={editor.open}
-                task={editor.task}
-                options={options}
-                assignees={assignees}
-                currentUserId={auth.user!.id}
-                initialReference={initialReference}
-                onClose={() => setEditor({ open: false, task: null })}
-            />
+            {isManager && (
+                <TaskModal
+                    open={editor.open}
+                    task={editor.task}
+                    options={options}
+                    assignees={assignees}
+                    currentUserId={auth.user!.id}
+                    initialReference={initialReference}
+                    onClose={() => setEditor({ open: false, task: null })}
+                />
+            )}
 
             <Modal
                 title={transitionTitle}

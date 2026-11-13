@@ -15,8 +15,8 @@ interface Props {
     tasks: TaskRow[];
     options: TaskOptions;
     onSelectTask: (task: TaskRow) => void;
-    onCreateOnDate: (date: dayjs.Dayjs) => void;
-    onEdit: (task: TaskRow) => void;
+    onCreateOnDate?: (date: dayjs.Dayjs) => void;
+    onEdit?: (task: TaskRow) => void;
     onChangeStatus: (task: TaskRow, status: string) => void;
 }
 
@@ -62,13 +62,15 @@ export default function AgendaView({
                     description="Không có lịch trình nào trong khoảng thời gian này."
                     image={Empty.PRESENTED_IMAGE_SIMPLE}
                 >
-                    <Button
-                        type="primary"
-                        icon={<PlusOutlined />}
-                        onClick={() => onCreateOnDate(today)}
-                    >
-                        Tạo lịch trình mới
-                    </Button>
+                    {onCreateOnDate && (
+                        <Button
+                            type="primary"
+                            icon={<PlusOutlined />}
+                            onClick={() => onCreateOnDate(today)}
+                        >
+                            Tạo lịch trình mới
+                        </Button>
+                    )}
                 </Empty>
             </div>
         );
@@ -103,13 +105,13 @@ export default function AgendaView({
                                 )}
                             </div>
 
-                            <Button
+                            {onCreateOnDate && <Button
                                 size="small"
                                 icon={<PlusOutlined />}
                                 onClick={() => onCreateOnDate(date.hour(9).minute(0))}
                             >
                                 Thêm lịch
-                            </Button>
+                            </Button>}
                         </div>
 
                         {/* Task items list */}
@@ -228,13 +230,15 @@ export default function AgendaView({
                                                         title="Hoàn thành nhiệm vụ"
                                                     />
                                                 )}
-                                                <Button
-                                                    size="small"
-                                                    type="text"
-                                                    icon={<EditOutlined />}
-                                                    onClick={() => onEdit(task)}
-                                                    title="Chỉnh sửa"
-                                                />
+                                                {onEdit && (
+                                                    <Button
+                                                        size="small"
+                                                        type="text"
+                                                        icon={<EditOutlined />}
+                                                        onClick={() => onEdit(task)}
+                                                        title="Chỉnh sửa"
+                                                    />
+                                                )}
                                             </Space>
                                         </div>
                                     </div>
