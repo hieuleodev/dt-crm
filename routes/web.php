@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Care\CalendarController;
+use App\Http\Controllers\Care\EventController;
 use App\Http\Controllers\Care\TaskController;
 use App\Http\Controllers\Care\WorkbenchController;
 use App\Http\Controllers\Customer\ContactController;
@@ -62,6 +63,9 @@ Route::middleware('auth')->group(function () {
 
     // Calendar
     Route::get('/calendar', [CalendarController::class, 'index'])->name('calendar.index');
+
+    // Events / Sự kiện
+    Route::get('/events', [EventController::class, 'index'])->name('events.index');
 
     // Today tasks / Workbench
     Route::get('/workbench', WorkbenchController::class)->name('workbench');

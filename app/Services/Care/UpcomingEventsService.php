@@ -69,7 +69,7 @@ class UpcomingEventsService
     }
 
     /**
-     * Lấy các sự kiện trong vòng 7 ngày tới (Ngày thành lập công ty khách hàng + Ngày lễ).
+     * Lấy các sự kiện trong vòng số ngày chỉ định (mặc định 7 ngày tới - Ngày thành lập công ty khách hàng + Ngày lễ).
      *
      * @return array{
      *     events: list<array<string, mixed>>,
@@ -80,10 +80,11 @@ class UpcomingEventsService
      *     notice_days: int
      * }
      */
-    public function getUpcomingEvents(User $user, ?CarbonImmutable $asOf = null): array
+    public function getUpcomingEvents(User $user, ?CarbonImmutable $asOf = null, int $noticeDays = self::NOTICE_DAYS): array
     {
+        $noticeDays = max(1, $noticeDays);
         $now = ($asOf ?? CarbonImmutable::now(self::TIMEZONE))->startOfDay();
-        $windowEnd = $now->addDays(self::NOTICE_DAYS)->endOfDay();
+        $windowEnd = $now->addDays($noticeDays)->endOfDay();
 
         $events = [];
 
@@ -202,7 +203,7 @@ class UpcomingEventsService
             'today_count' => $todayCount,
             'company_count' => $companyCount,
             'holiday_count' => $holidayCount,
-            'notice_days' => self::NOTICE_DAYS,
+            'notice_days' => $noticeDays,
         ];
     }
 

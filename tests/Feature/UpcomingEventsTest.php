@@ -156,4 +156,31 @@ class UpcomingEventsTest extends TestCase
                 ->has('upcomingEvents.notice_days'),
         );
     }
+
+    public function test_events_page_renders_and_supports_filtering(): void
+    {
+        $sales = $this->user(UserRole::Sales);
+
+        $response = $this->actingAs($sales)->get('/events');
+
+        $response->assertOk();
+        $response->assertInertia(
+            fn ($page) => $page
+                ->component('Events/Index')
+                ->has('eventsData')
+                ->has('filters')
+                ->has('options')
+                ->has('assignees'),
+        );
+
+        // Test filtering by category and range
+        $filteredResponse = $this->actingAs($sales)->get('/events?range=30&category=holiday');
+        $filteredResponse->assertOk();
+        $filteredResponse->assertInertia(
+            fn ($page) => $page
+                ->component('Events/Index')
+                ->where('filters.range', '30')
+                ->where('filters.category', 'holiday'),
+        );
+    }
 }

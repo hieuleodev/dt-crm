@@ -14,6 +14,7 @@ import {
     UserOutlined,
     CheckSquareOutlined,
     ScheduleOutlined,
+    GiftOutlined,
 } from "@ant-design/icons";
 import type { PageProps } from "@/types";
 
@@ -50,6 +51,12 @@ const MENU = [
         key: "/calendar",
         icon: <CalendarOutlined />,
         label: "Lịch trình",
+        disabled: false,
+    },
+    {
+        key: "/events",
+        icon: <GiftOutlined />,
+        label: "Sự kiện",
         disabled: false,
     },
     {

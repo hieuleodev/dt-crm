@@ -90,21 +90,35 @@ export default function UpcomingEventsCard({ data, onCreateTask }: Props) {
                 </div>
             }
             extra={
-                <Radio.Group
-                    size="small"
-                    value={filterCategory}
-                    onChange={(e) => setFilterCategory(e.target.value)}
-                    optionType="button"
-                    buttonStyle="solid"
-                >
-                    <Radio.Button value="all">Tất cả ({data.total})</Radio.Button>
-                    <Radio.Button value="company_anniversary">
-                        🏢 Thành lập ({data.company_count})
-                    </Radio.Button>
-                    <Radio.Button value="holiday">
-                        🎈 Ngày lễ ({data.holiday_count})
-                    </Radio.Button>
-                </Radio.Group>
+                <Space size="middle" wrap>
+                    <Radio.Group
+                        size="small"
+                        value={filterCategory}
+                        onChange={(e) => setFilterCategory(e.target.value)}
+                        optionType="button"
+                        buttonStyle="solid"
+                    >
+                        <Radio.Button value="all">Tất cả ({data.total})</Radio.Button>
+                        <Radio.Button value="company_anniversary">
+                            🏢 Thành lập ({data.company_count})
+                        </Radio.Button>
+                        <Radio.Button value="holiday">
+                            🎈 Ngày lễ ({data.holiday_count})
+                        </Radio.Button>
+                    </Radio.Group>
+                    <Link
+                        href="/events"
+                        style={{
+                            fontSize: 13,
+                            fontWeight: 500,
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 4,
+                        }}
+                    >
+                        Xem trang sự kiện <RightOutlined style={{ fontSize: 11 }} />
+                    </Link>
+                </Space>
             }
         >
             {data.total === 0 ? (
