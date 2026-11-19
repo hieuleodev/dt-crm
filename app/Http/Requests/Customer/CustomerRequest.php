@@ -60,6 +60,7 @@ class CustomerRequest extends FormRequest
             ],
 
             'notes' => ['nullable', 'string', 'max:5000'],
+            'founded_date' => ['nullable', 'date'],
         ];
     }
 

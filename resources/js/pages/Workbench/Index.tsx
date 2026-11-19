@@ -23,9 +23,11 @@ import AppLayout from "@/layouts/AppLayout";
 import PageHeader from "@/components/common/PageHeader";
 import TaskModal from "@/components/tasks/TaskModal";
 import TaskStatusModal from "@/components/tasks/TaskStatusModal";
+import UpcomingEventsCard from "@/components/workbench/UpcomingEventsCard";
+import type { UpcomingEventsData } from "@/components/workbench/UpcomingEventsCard";
 import type { TaskStatus } from "@/components/tasks/TaskStatusModal";
 import type { PageProps, Paginated } from "@/types";
-import type { TaskAssignee, TaskOptions, TaskRow } from "@/types/task";
+import type { TaskAssignee, TaskOptions, TaskReference, TaskRow } from "@/types/task";
 
 dayjs.extend(utc);
 dayjs.extend(timezonePlugin);
@@ -54,6 +56,7 @@ interface Props extends PageProps {
     summary: Summary;
     options: TaskOptions;
     assignees: TaskAssignee[];
+    upcomingEvents?: UpcomingEventsData;
     generatedAt: string;
     timezone: string;
 }
@@ -73,6 +76,7 @@ export default function Index() {
         summary,
         options,
         assignees,
+        upcomingEvents,
         generatedAt,
         timezone,
     } = usePage<Props>().props;
@@ -87,7 +91,29 @@ export default function Index() {
     const [editor, setEditor] = useState<{
         open: boolean;
         task: TaskRow | null;
+        initialTitle?: string | null;
+        initialReference?: TaskReference | null;
+        initialDueAt?: dayjs.Dayjs | null;
+        initialType?: string | null;
     }>({ open: false, task: null });
+
+    function handleCreateTaskFromEvent(suggested: {
+        title: string;
+        reference: string | null;
+        due_at: string;
+        type: string;
+    }) {
+        setEditor({
+            open: true,
+            task: null,
+            initialTitle: suggested.title,
+            initialReference: suggested.reference
+                ? { value: suggested.reference, label: suggested.title }
+                : null,
+            initialDueAt: dayjs(suggested.due_at).tz(timezone),
+            initialType: suggested.type,
+        });
+    }
 
     const [transition, setTransition] = useState<{
         task: TaskRow;
@@ -359,6 +385,11 @@ export default function Index() {
                         );
                     })}
                 </section>
+
+                <UpcomingEventsCard
+                    data={upcomingEvents}
+                    onCreateTask={handleCreateTaskFromEvent}
+                />
 
                 {loadError && (
                     <Alert
@@ -652,17 +683,27 @@ export default function Index() {
                 </section>
             </div>
 
-            {isManager && (
-                <TaskModal
-                    open={editor.open}
-                    task={editor.task}
-                    options={options}
-                    assignees={assignees}
-                    currentUserId={auth.user!.id}
-                    initialReference={null}
-                    onClose={() => setEditor({ open: false, task: null })}
-                />
-            )}
+            <TaskModal
+                open={editor.open}
+                task={editor.task}
+                options={options}
+                assignees={assignees}
+                currentUserId={auth.user!.id}
+                initialReference={editor.initialReference ?? null}
+                initialDueAt={editor.initialDueAt}
+                initialTitle={editor.initialTitle}
+                initialType={editor.initialType}
+                onClose={() =>
+                    setEditor({
+                        open: false,
+                        task: null,
+                        initialTitle: null,
+                        initialReference: null,
+                        initialDueAt: null,
+                        initialType: null,
+                    })
+                }
+            />
 
             <TaskStatusModal
                 task={transition?.task ?? null}

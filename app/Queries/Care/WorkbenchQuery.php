@@ -5,11 +5,16 @@ namespace App\Queries\Care;
 use App\Data\Care\TaskData;
 use App\Models\Task;
 use App\Models\User;
+use App\Services\Care\UpcomingEventsService;
 use Carbon\CarbonImmutable;
 
 class WorkbenchQuery
 {
     public const TIMEZONE = 'Asia/Ho_Chi_Minh';
+
+    public function __construct(
+        private readonly UpcomingEventsService $eventsService = new UpcomingEventsService,
+    ) {}
 
     public function handle(User $user, array $filters): array
     {
@@ -123,6 +128,8 @@ class WorkbenchQuery
                 'q' => $term,
                 'priority' => $filters['priority'] ?? null,
             ],
+
+            'upcomingEvents' => $this->eventsService->getUpcomingEvents($user),
 
             'generatedAt' => $now->toIso8601String(),
             'timezone' => self::TIMEZONE,

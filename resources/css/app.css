@@ -1122,6 +1122,138 @@ button.crm-workbench__metric:not(:disabled):active {
     padding: var(--crm-space-7) var(--crm-space-4);
 }
 
+/* Workbench Upcoming Events & Holidays Widget */
+.crm-workbench-events {
+    margin-bottom: var(--crm-space-4);
+    border-radius: var(--crm-radius-md);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.crm-workbench-events .ant-card-head {
+    border-bottom: 1px solid var(--crm-border);
+    padding: var(--crm-space-3) var(--crm-space-5);
+}
+
+.crm-workbench-events .ant-card-body {
+    padding: var(--crm-space-4) var(--crm-space-5);
+}
+
+.crm-workbench-events__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+    gap: var(--crm-space-4);
+}
+
+.crm-workbench-event-card {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: var(--crm-space-3);
+    padding: var(--crm-space-4);
+    border: 1px solid var(--crm-border);
+    border-radius: var(--crm-radius-md);
+    background: var(--crm-surface-panel);
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.crm-workbench-event-card:hover {
+    border-color: #cbd5e1;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.crm-workbench-event-card--company {
+    border-left: 4px solid #7c3aed;
+    background: linear-gradient(135deg, #faf5ff 0%, #ffffff 40%);
+}
+
+.crm-workbench-event-card--holiday {
+    border-left: 4px solid #ea580c;
+    background: linear-gradient(135deg, #fff7ed 0%, #ffffff 40%);
+}
+
+.crm-workbench-event-card--today {
+    border-color: #fca5a5;
+    box-shadow: 0 0 0 1px #ef4444, 0 4px 12px rgba(239, 68, 68, 0.12);
+}
+
+.crm-workbench-event-card__top {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--crm-space-3);
+}
+
+.crm-workbench-event-card__icon-box {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: var(--crm-radius-sm);
+    background: var(--crm-surface-subtle);
+    flex-shrink: 0;
+}
+
+.crm-workbench-event-card__header-info {
+    display: flex;
+    flex-direction: column;
+    gap: var(--crm-space-1);
+    flex: 1;
+    min-width: 0;
+}
+
+.crm-workbench-event-card__title {
+    margin: var(--crm-space-1) 0 2px;
+    font-size: var(--crm-font-md);
+    font-weight: 600;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+}
+
+.crm-workbench-event-card__title a {
+    color: var(--crm-text);
+    text-decoration: none;
+}
+
+.crm-workbench-event-card__title a:hover {
+    color: var(--crm-accent-text);
+    text-decoration: underline;
+}
+
+.crm-workbench-event-card__subtitle {
+    font-size: var(--crm-font-sm);
+    color: var(--crm-text-muted);
+    font-weight: 500;
+}
+
+.crm-workbench-event-card__bottom {
+    display: flex;
+    flex-direction: column;
+    gap: var(--crm-space-3);
+    padding-top: var(--crm-space-3);
+    border-top: 1px dashed var(--crm-border);
+}
+
+.crm-workbench-event-card__desc {
+    font-size: var(--crm-font-sm);
+    color: var(--crm-text-muted);
+    line-height: 1.5;
+}
+
+.crm-workbench-event-card__actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--crm-space-2);
+    flex-wrap: wrap;
+    margin-top: var(--crm-space-1);
+}
+
+@media (max-width: 768px) {
+    .crm-workbench-events__grid {
+        grid-template-columns: 1fr;
+    }
+}
+
 .leads-page {
     display: flex;
     flex-direction: column;

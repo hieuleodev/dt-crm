@@ -256,6 +256,7 @@ class CustomerController extends Controller
             'status' => $enum($c->status),
             'procurement_method' => $enum($c->procurement_method),
             'vendor_registered_at' => $c->vendor_registered_at?->toDateString(),
+            'founded_date' => $c->founded_date?->toDateString(),
             'required_certificates' => $c->required_certificates ?? [],
             'consent_channels' => $c->consent_channels ?? [],
             'tags' => $c->tags->pluck('name'),
