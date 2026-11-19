@@ -128,18 +128,25 @@ export default function MonthView({
                                 >
                                     {/* Cell header: Date number and quick add button */}
                                     <div className="crm-cal-month__cell-header">
-                                        <button
-                                            type="button"
-                                            className={`crm-cal-month__date-num ${
-                                                isToday ? "crm-cal-month__date-num--today" : ""
-                                            }`}
-                                            onClick={() => onOpenDayModal(date, dayTasks, dayEvents)}
-                                            title="Xem danh sách chi tiết ngày này"
-                                        >
-                                            {date.date() === 1
-                                                ? `${date.date()} Th${date.month() + 1}`
-                                                : date.date()}
-                                        </button>
+                                        <div style={{ display: "flex", alignItems: "center", gap: 4, minWidth: 0 }}>
+                                            <button
+                                                type="button"
+                                                className={`crm-cal-month__date-num ${
+                                                    isToday ? "crm-cal-month__date-num--today" : ""
+                                                }`}
+                                                onClick={() => onOpenDayModal(date, dayTasks, dayEvents)}
+                                                title="Xem danh sách chi tiết ngày này"
+                                            >
+                                                {date.date() === 1
+                                                    ? `${date.date()} Th${date.month() + 1}`
+                                                    : date.date()}
+                                            </button>
+                                            {isToday && (
+                                                <span className="crm-cal-month__today-pill">
+                                                    Hôm nay
+                                                </span>
+                                            )}
+                                        </div>
 
                                         {onCreateOnDate && (
                                             <button
