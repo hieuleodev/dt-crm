@@ -94,6 +94,7 @@ const FIELD_LABELS: Record<string, string> = {
     expected_close_date: "Ngày dự kiến chốt",
     lost_reason: "Lý do thất bại",
     contact_name: "Người liên hệ",
+    result: "Kết quả",
 };
 const SUBJECTS: Record<string, string> = {
     Customer: "Khách hàng",
@@ -101,11 +102,19 @@ const SUBJECTS: Record<string, string> = {
     Plant: "Nhà máy",
     CustomerNote: "Ghi chú khách hàng",
     Lead: "Cơ hội kinh doanh",
+    Task: "Nhiệm vụ",
 };
 const EVENTS: Record<string, { label: string; color: string }> = {
     created: { label: "Tạo mới", color: "green" },
     updated: { label: "Cập nhật", color: "blue" },
     deleted: { label: "Xóa", color: "red" },
+    task_completed: { label: "Hoàn thành", color: "green" },
+};
+const TASK_STATUSES: Record<string, string> = {
+    pending: "Chờ thực hiện",
+    in_progress: "Đang thực hiện",
+    completed: "Hoàn thành",
+    cancelled: "Đã hủy",
 };
 
 const plain = (v: unknown) =>
@@ -210,6 +219,10 @@ export default function Show() {
         ENUM_FIELDS[key] && typeof v === "string"
             ? labelOf(ENUM_FIELDS[key], v)
             : plain(v);
+    const showAuditValue = (subject: string, key: string, value: unknown) =>
+        subject === "Task" && key === "status" && typeof value === "string"
+            ? (TASK_STATUSES[value] ?? value)
+            : show(key, value);
     const [contactModal, setContactModal] = useState<{
         open: boolean;
         item: ContactItem | null;
@@ -438,7 +451,7 @@ export default function Show() {
         {
             title: "Chi tiết",
             render: (_, l) => {
-                if (l.event !== "updated")
+                if (l.event !== "updated" && l.event !== "task_completed")
                     return (
                         <span className="crm-muted">
                             {plain(
@@ -450,15 +463,27 @@ export default function Show() {
                             )}
                         </span>
                     );
-                return Object.keys(l.new ?? {}).map((k) => (
-                    <div key={k}>
-                        <span className="crm-muted">
-                            {FIELD_LABELS[k] ?? k}:
-                        </span>{" "}
-                        {show(k, l.old?.[k])} →{" "}
-                        <strong>{show(k, l.new?.[k])}</strong>
-                    </div>
-                ));
+                return (
+                    <>
+                        {l.task_title && (
+                            <div key="task-title">
+                                <span className="crm-muted">Nhiệm vụ:</span>{" "}
+                                <strong>{l.task_title}</strong>
+                            </div>
+                        )}
+                        {Object.keys(l.new ?? {}).map((k) => (
+                            <div key={k}>
+                                <span className="crm-muted">
+                                    {FIELD_LABELS[k] ?? k}:
+                                </span>{" "}
+                                {showAuditValue(l.subject, k, l.old?.[k])} →{" "}
+                                <strong>
+                                    {showAuditValue(l.subject, k, l.new?.[k])}
+                                </strong>
+                            </div>
+                        ))}
+                    </>
+                );
             },
         },
     ];

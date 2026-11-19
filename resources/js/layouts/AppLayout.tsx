@@ -14,6 +14,7 @@ import {
     UserOutlined,
     CheckSquareOutlined,
     ScheduleOutlined,
+    HistoryOutlined,
 } from "@ant-design/icons";
 import type { PageProps } from "@/types";
 
@@ -44,6 +45,12 @@ const MENU = [
         key: "/tasks",
         icon: <ScheduleOutlined />,
         label: "Nhiệm vụ",
+        disabled: false,
+    },
+    {
+        key: "/history",
+        icon: <HistoryOutlined />,
+        label: "Lịch sử",
         disabled: false,
     },
     {

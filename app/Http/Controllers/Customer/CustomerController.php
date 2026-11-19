@@ -11,6 +11,7 @@ use App\Models\Customer;
 use App\Models\CustomerNote;
 use App\Models\Lead;
 use App\Models\Plant;
+use App\Models\Task;
 use App\Models\User;
 use App\Services\Customer\DataCompleteness;
 use App\Services\Customer\FindDuplicateCustomers;
@@ -269,6 +270,17 @@ class CustomerController extends Controller
 
     private function auditTrail(Customer $customer): array
     {
+        $leadIds = Lead::query()
+            ->where('customer_id', $customer->id)
+            ->select('id');
+        $taskIds = Task::query()
+            ->where(function ($query) use ($customer, $leadIds) {
+                $query->where('customer_id', $customer->id);
+                $query->orWhereIn('lead_id', $leadIds);
+            })
+            ->select('id');
+        $taskTypes = AuditLog::typesFor(Task::class);
+
         $targets = [
             Customer::class => [$customer->id],
             Contact::class => $customer->contacts()->withTrashed()->pluck('id')->all(),
@@ -278,14 +290,28 @@ class CustomerController extends Controller
         ];
 
         $logs = AuditLog::query()->with('user:id,name')
-            ->where(function ($q) use ($targets) {
+            ->where(function ($q) use ($targets, $taskIds, $taskTypes) {
                 foreach ($targets as $type => $ids) {
                     if ($ids) {
                         $q->orWhere(fn ($w) => $w->whereIn('auditable_type', AuditLog::typesFor($type))->whereIn('auditable_id', $ids));
                     }
                 }
+
+                $q->orWhere(fn ($w) => $w
+                    ->whereIn('auditable_type', $taskTypes)
+                    ->whereIn('auditable_id', $taskIds)
+                    ->where('event', 'updated')
+                    ->where('new_values->status', 'completed'));
             })
             ->latest('id')->limit(50)->get();
+
+        $taskIdsInLogs = $logs
+            ->whereIn('auditable_type', $taskTypes)
+            ->pluck('auditable_id')
+            ->unique();
+        $taskTitles = Task::query()
+            ->whereIn('id', $taskIdsInLogs)
+            ->pluck('title', 'id');
 
         $userIds = $logs->flatMap(fn ($l) => [$l->old_values['owner_id'] ?? null, $l->new_values['owner_id'] ?? null])->filter()->unique();
         $names = User::whereIn('id', $userIds)->pluck('name', 'id');
@@ -293,14 +319,27 @@ class CustomerController extends Controller
             ? [...$v, 'owner_id' => $v['owner_id'] ? ($names[$v['owner_id']] ?? "#{$v['owner_id']}") : null]
             : $v;
 
-        return $logs->map(fn (AuditLog $l) => [
-            'id' => $l->id,
-            'event' => $l->event,
-            'subject' => class_basename($l->auditable_type),
-            'user' => $l->user?->name ?? 'Hệ thống',
-            'old' => $withNames($l->old_values),
-            'new' => $withNames($l->new_values),
-            'at' => $l->created_at?->toIso8601String(),
-        ])->all();
+        return $logs->map(function (AuditLog $log) use ($taskTitles, $taskTypes, $withNames): array {
+            $isCompletedTask = in_array($log->auditable_type, $taskTypes, true);
+            $oldValues = $withNames($log->old_values);
+            $newValues = $withNames($log->new_values);
+
+            if ($isCompletedTask) {
+                $taskFields = array_flip(['status', 'result']);
+                $oldValues = array_intersect_key($oldValues ?? [], $taskFields);
+                $newValues = array_intersect_key($newValues ?? [], $taskFields);
+            }
+
+            return [
+                'id' => $log->id,
+                'event' => $isCompletedTask ? 'task_completed' : $log->event,
+                'subject' => class_basename($log->auditable_type),
+                'user' => $log->user?->name ?? 'Hệ thống',
+                'old' => $oldValues,
+                'new' => $newValues,
+                'task_title' => $isCompletedTask ? $taskTitles[$log->auditable_id] ?? null : null,
+                'at' => $log->created_at?->toIso8601String(),
+            ];
+        })->all();
     }
 }

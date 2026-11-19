@@ -2431,6 +2431,37 @@ button.crm-workbench__metric:not(:disabled):active {
 }
 
 /* Dashboard */
+.crm-history { display: grid; min-width: 0; gap: var(--crm-space-5); }
+.crm-history > * { min-width: 0; }
+.crm-history__metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.crm-history__metric .ant-card-body { min-height: 116px; display: flex; align-items: center; }
+.crm-history__metric .ant-statistic { width: 100%; }
+.crm-history__metric .ant-statistic-title { color: var(--crm-text-muted); }
+.crm-history__metric .ant-statistic-content { display: flex; align-items: center; gap: 10px; font-size: 30px; font-weight: 700; }
+.crm-history__metric--success .ant-statistic-content { color: var(--crm-success); }
+.crm-history__metric--failure .ant-statistic-content { color: var(--crm-error); }
+.crm-history__metric--neutral .ant-statistic-content { color: var(--crm-text); }
+.crm-history__filter-card .ant-card-body { padding: 18px 20px; }
+.crm-history__filters { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.crm-history__filters > div:first-child, .crm-history__record { display: grid; gap: 4px; }
+.crm-history__filters > div:first-child > span, .crm-history__record > .ant-typography { color: var(--crm-text-muted); font-size: var(--crm-font-sm); }
+.crm-history__section-heading { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 12px; }
+.crm-history__section-heading .ant-typography { margin: 0; }
+.crm-history__section-heading > .anticon { color: var(--crm-accent); font-size: 22px; }
+.crm-history__record { min-width: 0; }
+.crm-history__record > a { font-weight: 600; overflow-wrap: anywhere; }
+.crm-history__record > .ant-typography { overflow-wrap: anywhere; }
+.crm-history__tab-placeholder { min-height: 1px; }
+.crm-history__hint { display: block; margin-top: 16px; }
+.crm-history__hint > .anticon { margin-inline-end: 4px; }
+@media (max-width: 767px) {
+    .crm-history__metrics { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+    .crm-history__metric .ant-card-body { min-height: 84px; padding: 14px; }
+    .crm-history__metric .ant-statistic-content { font-size: 26px; }
+    .crm-history__filters { align-items: stretch; flex-direction: column; }
+    .crm-history__filters .ant-picker { width: 100%; }
+}
+
 .crm-dashboard { display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; gap: var(--crm-space-5); }
 .crm-dashboard > *, .crm-dashboard__metrics > * { min-width: 0; }
 .crm-dashboard__scope { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 20px; background: var(--crm-surface-panel); border: 1px solid var(--crm-border); border-radius: var(--crm-radius-md); }

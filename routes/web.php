@@ -10,6 +10,7 @@ use App\Http\Controllers\Customer\CustomerNoteController;
 use App\Http\Controllers\Customer\DuplicateCheckController;
 use App\Http\Controllers\Customer\PlantController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\HistoryController;
 use App\Http\Controllers\ImportController;
 use App\Http\Controllers\LeadController;
 use App\Http\Controllers\OpportunityController;
@@ -23,6 +24,7 @@ Route::middleware('guest')->group(function () {
 Route::middleware('auth')->group(function () {
     Route::get('/', DashboardController::class)->name('dashboard');
     Route::post('/logout', [LoginController::class, 'destroy'])->name('logout');
+    Route::get('/history', [HistoryController::class, 'index'])->name('history.index');
 
     // Imports
     Route::get('/imports', [ImportController::class, 'index'])->name('imports.index');

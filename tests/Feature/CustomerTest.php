@@ -5,7 +5,9 @@ namespace Tests\Feature;
 use App\Enums\Staff\UserRole;
 use App\Models\AuditLog;
 use App\Models\Customer;
+use App\Models\Task;
 use App\Models\User;
+use App\Services\Care\SaveTask;
 use App\Services\Customer\SaveCustomer;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
@@ -256,5 +258,61 @@ class CustomerTest extends TestCase
 
         $this->assertSame('Tên mới', $log->new_values['name']);
         $this->assertSame($sale->id, $log->user_id);
+    }
+
+    public function test_completed_customer_task_is_added_to_the_change_log(): void
+    {
+        $sale = $this->user(UserRole::Sales);
+        $customer = $this->customer($sale);
+        $saveTask = new SaveTask;
+        $completedTask = $saveTask->handle([
+            'title' => 'Gọi khách xác nhận giao dịch',
+            'description' => null,
+            'type' => 'call',
+            'priority' => 'normal',
+            'assignee_id' => $sale->id,
+            'reference' => "customer:{$customer->id}",
+            'due_at' => now('UTC')->addDay()->toIso8601String(),
+        ], $sale);
+        $cancelledTask = $saveTask->handle([
+            'title' => 'Nhiệm vụ bị hủy',
+            'description' => null,
+            'type' => 'call',
+            'priority' => 'normal',
+            'assignee_id' => $sale->id,
+            'reference' => "customer:{$customer->id}",
+            'due_at' => now('UTC')->addDay()->toIso8601String(),
+        ], $sale);
+
+        $this->actingAs($sale)
+            ->patch(route('tasks.status', $completedTask), [
+                'status' => 'completed',
+                'version' => $completedTask->version,
+                'note' => 'Khách đã xác nhận đơn hàng.',
+            ])
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $this->patch(route('tasks.status', $cancelledTask), [
+            'status' => 'cancelled',
+            'version' => $cancelledTask->version,
+            'note' => 'Khách dời lịch.',
+        ])->assertRedirect();
+
+        $this->get(route('customers.show', $customer))
+            ->assertInertia(fn ($page) => $page
+                ->has('auditLogs', 2)
+                ->where('auditLogs.0.event', 'task_completed')
+                ->where('auditLogs.0.subject', 'Task')
+                ->where('auditLogs.0.task_title', 'Gọi khách xác nhận giao dịch')
+                ->where('auditLogs.0.old.status', 'pending')
+                ->where('auditLogs.0.new.status', 'completed')
+                ->where('auditLogs.0.new.result', 'Khách đã xác nhận đơn hàng.'));
+
+        $this->assertDatabaseHas('audit_logs', [
+            'auditable_type' => Task::class,
+            'auditable_id' => $completedTask->id,
+            'event' => 'updated',
+        ]);
     }
 }

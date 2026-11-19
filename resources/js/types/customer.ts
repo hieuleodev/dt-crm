@@ -156,6 +156,7 @@ export interface AuditItem {
     event: "created" | "updated" | "deleted" | string;
     subject: string;
     user: string;
+    task_title?: string | null;
     old: Record<string, unknown> | null;
     new: Record<string, unknown> | null;
     at: string | null;
