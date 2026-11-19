@@ -48,6 +48,11 @@ class Lead extends Model
         'owner_id',
         'customer_id',
         'title',
+        'requested_product',
+        'sapo_product_id',
+        'sapo_variant_id',
+        'requested_quantity',
+        'requested_unit_price',
         'contact_name',
         'company',
         'email',
@@ -64,6 +69,8 @@ class Lead extends Model
     {
         return [
             'estimated_value' => 'decimal:2',
+            'requested_quantity' => 'decimal:3',
+            'requested_unit_price' => 'decimal:2',
             'probability' => 'integer',
             'expected_close_date' => 'date:Y-m-d',
             'converted_at' => 'datetime',

@@ -158,28 +158,34 @@ class CustomerController extends Controller
                     'plant' => $c->plant?->name,
                 ]),
             'plants' => $customer->plants->map(fn ($p) => $p->only('id', 'name', 'address', 'province', 'industrial_zone', 'employee_count', 'hazard_areas', 'receiving_hours', 'delivery_notes')),
-            'opportunities' => $customer->opportunities()
-                ->with('owner:id,name')
-                ->withCount('tasks')
-                ->orderByRaw('CASE WHEN expected_close_date IS NULL THEN 1 ELSE 0 END')
-                ->orderBy('expected_close_date')
-                ->latest('id')
-                ->get()
-                ->map(fn (Lead $opp) => [
-                    'id' => $opp->id,
-                    'title' => $opp->title,
-                    'contact_name' => $opp->contact_name,
-                    'phone' => $opp->phone,
-                    'email' => $opp->email,
-                    'stage' => $opp->stage,
-                    'stage_label' => Lead::STAGES['opportunity'][$opp->stage] ?? $opp->stage,
-                    'estimated_value' => (string) $opp->estimated_value,
-                    'probability' => $opp->probability ?? (Lead::STAGE_PROBABILITIES[$opp->stage] ?? 0),
-                    'expected_close_date' => $opp->expected_close_date?->format('Y-m-d'),
-                    'lost_reason' => $opp->lost_reason,
-                    'owner' => $opp->owner?->name,
-                    'tasks_count' => $opp->tasks_count,
-                ]),
+            // Hồ sơ khách hàng hiển thị sản phẩm, số lượng và đơn giá đã ghi trên từng Cơ hội.
+            'opportunities' => $user->canAccessWorkArea('opportunities')
+                ? $customer->opportunities()
+                    ->with('owner:id,name')
+                    ->withCount('tasks')
+                    ->orderByRaw('CASE WHEN expected_close_date IS NULL THEN 1 ELSE 0 END')
+                    ->orderBy('expected_close_date')
+                    ->latest('id')
+                    ->get()
+                    ->map(fn (Lead $opp) => [
+                        'id' => $opp->id,
+                        'title' => $opp->title,
+                        'requested_product' => $opp->requested_product,
+                        'requested_quantity' => $opp->requested_quantity,
+                        'requested_unit_price' => $opp->requested_unit_price,
+                        'contact_name' => $opp->contact_name,
+                        'phone' => $opp->phone,
+                        'email' => $opp->email,
+                        'stage' => $opp->stage,
+                        'stage_label' => Lead::STAGES['opportunity'][$opp->stage] ?? $opp->stage,
+                        'estimated_value' => (string) $opp->estimated_value,
+                        'probability' => $opp->probability ?? (Lead::STAGE_PROBABILITIES[$opp->stage] ?? 0),
+                        'expected_close_date' => $opp->expected_close_date?->format('Y-m-d'),
+                        'lost_reason' => $opp->lost_reason,
+                        'owner' => $opp->owner?->name,
+                        'tasks_count' => $opp->tasks_count,
+                    ])
+                : [],
             'ownerHistory' => $customer->ownerHistories->map(fn ($h) => [
                 'id' => $h->id,
                 'from' => $h->fromUser?->name,

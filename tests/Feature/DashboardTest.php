@@ -60,7 +60,7 @@ class DashboardTest extends TestCase
         $this->actingAs($admin)->get('/')->assertOk()->assertInertia(fn ($page) => $page
             ->component('Dashboard/Index')->where('canAssign', true)
             ->where('summary.open', 2)->where('summary.overdue', 1)
-            ->has('team', 3)->has('assignees', 3));
+            ->has('team', 2)->has('assignees', 2));
         $this->get('/?assignee_id='.$first->id)->assertOk()->assertInertia(fn ($page) => $page
             ->where('filters.assignee_id', $first->id)->where('summary.open', 1)
             ->has('upcomingTasks', 1)->where('upcomingTasks.0.assignee_id', $first->id));
@@ -224,5 +224,49 @@ class DashboardTest extends TestCase
         $this->actingAs($manager)->get('/')->assertInertia(fn ($page) => $page->where('canAssign', true));
         $this->post('/tasks', $this->payload($staff))->assertSessionHasNoErrors();
         $this->get('/?assignee_id=999999')->assertSessionHasErrors('assignee_id');
+    }
+
+    public function test_admin_and_manager_cannot_assign_tasks_to_management_accounts(): void
+    {
+        $admin = $this->user(UserRole::Admin);
+        $manager = $this->user(UserRole::Manager);
+
+        $this->actingAs($admin)
+            ->post('/tasks', $this->payload($admin))
+            ->assertSessionHasErrors('assignee_id');
+
+        $this->actingAs($manager)
+            ->post('/tasks', $this->payload($manager))
+            ->assertSessionHasErrors('assignee_id');
+
+        $this->assertDatabaseCount('care_tasks', 0);
+    }
+
+    public function test_dashboard_counts_modules_without_per_account_permission_assignments(): void
+    {
+        $sales = User::factory()->create([
+            'role' => UserRole::Sales,
+            'is_active' => true,
+        ]);
+        Customer::create([
+            'code' => 'PERM01',
+            'name' => 'Restricted customer',
+            'owner_id' => $sales->id,
+            'created_by' => $sales->id,
+            'lifecycle_stage' => 'prospect',
+            'status' => 'active',
+        ]);
+        Lead::forceCreate([
+            'owner_id' => $sales->id,
+            'title' => 'Restricted lead',
+            'contact_name' => 'Buyer',
+        ]);
+        $this->task($sales);
+
+        $this->actingAs($sales)->get('/')->assertOk()->assertInertia(fn ($page) => $page
+            ->where('summary.customers', 1)
+            ->where('summary.leads', 1)
+            ->where('summary.open', 1)
+            ->has('upcomingTasks', 1));
     }
 }

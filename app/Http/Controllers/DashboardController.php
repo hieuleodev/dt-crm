@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Data\Care\TaskData;
+use App\Enums\Staff\UserRole;
 use App\Models\Customer;
 use App\Models\Lead;
 use App\Models\Task;
@@ -21,8 +22,19 @@ class DashboardController extends Controller
         abort_unless($user && $user->is_active, 403);
 
         $canAssign = $user->isManager();
+        // Các số liệu trên Dashboard đi theo quyền truy cập của từng phân hệ.
+        $canSeeCustomers = $user->canAccessWorkArea('customers');
+        $canSeeLeads = $user->canAccessWorkArea('leads');
+        $canSeeTasks = $user->canAccessWorkArea('tasks');
         $filters = $canAssign ? $request->validate([
-            'assignee_id' => ['nullable', 'integer', Rule::exists('users', 'id')->where('is_active', true)->whereNull('deleted_at')],
+            'assignee_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('users', 'id')
+                    ->where('is_active', true)
+                    ->where('role', UserRole::Sales->value)
+                    ->whereNull('deleted_at'),
+            ],
         ]) : [];
         $assigneeId = $filters['assignee_id'] ?? null;
         $now = CarbonImmutable::now('UTC');
@@ -30,11 +42,13 @@ class DashboardController extends Controller
         $end = $start->addDay();
         // Sales chỉ nhận số liệu và nhiệm vụ thuộc phạm vi hồ sơ được giao.
         $tasks = Task::query()->visibleTo($user)
+            ->when(! $canSeeTasks, fn ($query) => $query->whereRaw('1 = 0'))
             ->when($assigneeId, fn ($query) => $query->where('assignee_id', $assigneeId));
         $open = (clone $tasks)->whereIn('status', Task::OPEN_STATUSES);
         $statusCounts = (clone $tasks)->selectRaw('status, COUNT(*) AS total')->groupBy('status')->pluck('total', 'status');
 
-        $team = $canAssign ? User::query()->where('is_active', true)
+        // Bảng phân công thống kê Sales đang hoạt động, trùng với nhóm có thể nhận nhiệm vụ.
+        $team = $canAssign ? User::query()->where('is_active', true)->where('role', UserRole::Sales)
             ->select(['id', 'name', 'email', 'role'])
             ->selectSub(Task::query()->selectRaw('COUNT(*)')->whereColumn('assignee_id', 'users.id')->whereIn('status', Task::OPEN_STATUSES), 'open_tasks')
             ->selectSub(Task::query()->selectRaw('COUNT(*)')->whereColumn('assignee_id', 'users.id')->where('status', 'in_progress'), 'in_progress_tasks')
@@ -52,8 +66,8 @@ class DashboardController extends Controller
             'canAssign' => $canAssign,
             'filters' => ['assignee_id' => $assigneeId ? (int) $assigneeId : null],
             'summary' => [
-                'customers' => Customer::query()->visibleTo($user)->when($assigneeId, fn ($query) => $query->where('owner_id', $assigneeId))->count(),
-                'leads' => Lead::query()->visibleTo($user)->where('kind', 'lead')->when($assigneeId, fn ($query) => $query->where('owner_id', $assigneeId))->count(),
+                'customers' => $canSeeCustomers ? Customer::query()->visibleTo($user)->when($assigneeId, fn ($query) => $query->where('owner_id', $assigneeId))->count() : 0,
+                'leads' => $canSeeLeads ? Lead::query()->visibleTo($user)->where('kind', 'lead')->when($assigneeId, fn ($query) => $query->where('owner_id', $assigneeId))->count() : 0,
                 'open' => (clone $open)->count(),
                 'today' => (clone $open)->where('due_at', '>=', $now)->where('due_at', '<', $end)->count(),
                 'overdue' => (clone $open)->where('due_at', '<', $now)->count(),
@@ -67,7 +81,9 @@ class DashboardController extends Controller
                 ->orderByRaw('CASE WHEN due_at < ? THEN 0 WHEN due_at < ? THEN 1 ELSE 2 END', [$now, $end])
                 ->orderBy('due_at')->orderBy('id')->limit(6)->get()->map(fn (Task $task) => TaskData::from($task)),
             'team' => $team,
-            'assignees' => $canAssign ? User::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']) : [$user->only('id', 'name')],
+            'assignees' => ! $canSeeTasks ? [] : ($canAssign
+                ? User::query()->where('is_active', true)->where('role', UserRole::Sales)->orderBy('name')->get(['id', 'name'])
+                : [$user->only('id', 'name')]),
             'options' => ['types' => Task::TYPES, 'priorities' => Task::PRIORITIES, 'statuses' => Task::STATUSES],
             'generatedAt' => $now->toIso8601String(),
         ]);

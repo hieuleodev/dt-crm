@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Care;
 
 use App\Data\Care\TaskData;
+use App\Enums\Staff\UserRole;
 use App\Http\Controllers\Controller;
 use App\Models\Task;
 use App\Models\User;
@@ -157,9 +158,11 @@ class CalendarController extends Controller
                 'priorities' => Task::PRIORITIES,
                 'statuses' => Task::STATUSES,
             ],
+            // Bộ lọc lịch của quản lý liệt kê Sales đang hoạt động, cùng nhóm người có thể nhận việc.
             'assignees' => $user->isManager()
                 ? User::query()
                     ->where('is_active', true)
+                    ->where('role', UserRole::Sales->value)
                     ->orderBy('name')
                     ->get(['id', 'name'])
                 : [$user->only('id', 'name')],

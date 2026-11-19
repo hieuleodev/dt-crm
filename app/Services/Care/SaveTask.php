@@ -2,6 +2,7 @@
 
 namespace App\Services\Care;
 
+use App\Enums\Staff\UserRole;
 use App\Models\Customer;
 use App\Models\Lead;
 use App\Models\Task;
@@ -39,9 +40,14 @@ class SaveTask
                 }
             }
 
-            $assignee = User::query()
-                ->where('is_active', true)
-                ->findOrFail($data['assignee_id']);
+            // Kiểm tra lại người nhận tại lúc lưu để áp dụng quy tắc Sales cho mọi luồng tạo nhiệm vụ.
+            $assignee = User::query()->find($data['assignee_id']);
+
+            if (! $assignee || ! $assignee->is_active || $assignee->role !== UserRole::Sales) {
+                throw ValidationException::withMessages([
+                    'assignee_id' => 'Chỉ có thể giao việc cho nhân viên kinh doanh đang hoạt động.',
+                ]);
+            }
 
             if (! $actor->isManager() && $assignee->id !== $actor->id) {
                 abort(403);

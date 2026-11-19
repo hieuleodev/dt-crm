@@ -129,6 +129,9 @@ export interface PlantItem {
 export interface CustomerOpportunityItem {
     id: number;
     title: string;
+    requested_product: string | null;
+    requested_quantity: string | null;
+    requested_unit_price: string | null;
     contact_name: string;
     phone: string | null;
     email: string | null;

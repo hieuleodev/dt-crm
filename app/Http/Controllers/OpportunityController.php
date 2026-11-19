@@ -8,11 +8,11 @@ use App\Models\Customer;
 use App\Models\Lead;
 use App\Models\Task;
 use App\Models\User;
-use App\Services\Customer\DataCompleteness;
-use App\Services\Customer\SaveCustomer;
+use App\Services\Customer\SaveCustomerFromOpportunity;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -290,7 +290,7 @@ class OpportunityController extends Controller
     public function convertToCustomer(
         Request $request,
         Lead $opportunity,
-        SaveCustomer $saveCustomer,
+        SaveCustomerFromOpportunity $saveCustomer,
     ): RedirectResponse {
         $user = $request->user();
 
@@ -302,43 +302,32 @@ class OpportunityController extends Controller
             403,
         );
 
-        if ($opportunity->customer_id) {
+        // Cơ hội tạo trực tiếp vẫn có thể lưu Khách hàng bằng cùng quy tắc với luồng từ Lead.
+        $customer = DB::transaction(function () use ($opportunity, $user, $saveCustomer): ?Customer {
+            $lockedOpportunity = Lead::query()
+                ->visibleTo($user)
+                ->where('kind', 'opportunity')
+                ->lockForUpdate()
+                ->findOrFail($opportunity->id);
+
+            if ($lockedOpportunity->customer_id !== null) {
+                return null;
+            }
+
+            $customer = $saveCustomer->handle($lockedOpportunity, $user);
+            $lockedOpportunity->update([
+                'customer_id' => $customer->id,
+                'company' => $customer->name,
+            ]);
+
+            return $customer;
+        }, 3);
+
+        if ($customer === null) {
             return back()->with('error', 'Cơ hội này đã được gắn với một hồ sơ Khách hàng.');
         }
 
-        $lifecycleMap = [
-            'proposal' => 'quoting',
-            'negotiation' => 'negotiating',
-            'won' => 'new_customer',
-            'lost' => 'lost',
-        ];
-
-        $customer = $saveCustomer->handle([
-            'name' => $opportunity->company ?: $opportunity->title,
-            'phone' => $opportunity->phone,
-            'email' => $opportunity->email,
-            'owner_id' => $opportunity->owner_id,
-            'lifecycle_stage' => $lifecycleMap[$opportunity->stage] ?? 'quoting',
-            'ppe_budget_estimate' => $opportunity->estimated_value > 0 ? (int) $opportunity->estimated_value : null,
-            'notes' => $opportunity->notes,
-        ], $user);
-
-        if (filled($opportunity->contact_name)) {
-            $customer->contacts()->create([
-                'full_name' => $opportunity->contact_name,
-                'phone' => $opportunity->phone,
-                'email' => $opportunity->email,
-                'is_primary' => true,
-            ]);
-            DataCompleteness::refresh($customer);
-        }
-
-        $opportunity->update([
-            'customer_id' => $customer->id,
-            'company' => $customer->name,
-        ]);
-
-        return back()->with('success', "Đã tạo hồ sơ Khách hàng {$customer->code} · {$customer->name}.");
+        return back()->with('success', "Đã liên kết hồ sơ Khách hàng {$customer->code} · {$customer->name}.");
     }
 
     /**

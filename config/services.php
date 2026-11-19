@@ -35,4 +35,14 @@ return [
         ],
     ],
 
+    // Thông tin xác thực Sapo chỉ dùng ở máy chủ. Redirect URI dành cho chế độ OAuth.
+    'sapo' => [
+        'store_domain' => env('SAPO_STORE_DOMAIN'),
+        'auth_mode' => env('SAPO_AUTH_MODE', 'oauth'),
+        'access_token' => env('SAPO_ACCESS_TOKEN'),
+        'client_id' => env('SAPO_CLIENT_ID'),
+        'client_secret' => env('SAPO_CLIENT_SECRET'),
+        'redirect_uri' => env('SAPO_REDIRECT_URI'),
+    ],
+
 ];

@@ -130,6 +130,8 @@ export default function Show() {
         can,
         auth,
     } = usePage<Props>().props;
+    const canViewOpportunities = auth.user !== null;
+    const canUseTasks = auth.user !== null;
     const customerDetails: DescriptionsProps["items"] = [
         {
             key: "name",
@@ -479,6 +481,16 @@ export default function Show() {
                     <div>
                         <strong>{opp.title}</strong>
                     </div>
+                    {/* Dùng thông tin báo giá đã lưu trên Cơ hội để hiển thị trong hồ sơ khách hàng. */}
+                    {opp.requested_product && (
+                        <div className="crm-muted">
+                            Sản phẩm: {opp.requested_product}
+                            {opp.requested_quantity &&
+                            opp.requested_unit_price
+                                ? ` · ${formatNumber(Number(opp.requested_quantity))} × ${formatVnd(Number(opp.requested_unit_price))}`
+                                : ""}
+                        </div>
+                    )}
                     <div className="crm-muted">
                         {opp.contact_name}
                         {opp.phone ? ` · ${opp.phone}` : ""}
@@ -527,7 +539,7 @@ export default function Show() {
             title: "Thao tác",
             key: "actions",
             width: 150,
-            render: (_, opp) => (
+            render: (_, opp) => canUseTasks && (
                 <Button
                     size="small"
                     onClick={() => router.visit(`/tasks?lead_id=${opp.id}`)}
@@ -546,22 +558,26 @@ export default function Show() {
                 title={c.name}
                 extra={
                     <>
-                        <Button
-                            onClick={() =>
-                                router.visit(
-                                    `/opportunities?customer_id=${c.id}`,
-                                )
-                            }
-                        >
-                            Cơ hội ({opportunities.length})
-                        </Button>
-                        <Button
-                            onClick={() =>
-                                router.visit(`/tasks?customer_id=${c.id}`)
-                            }
-                        >
-                            Nhiệm vụ
-                        </Button>
+                        {canViewOpportunities && (
+                            <Button
+                                onClick={() =>
+                                    router.visit(
+                                        `/opportunities?customer_id=${c.id}`,
+                                    )
+                                }
+                            >
+                                Cơ hội ({opportunities.length})
+                            </Button>
+                        )}
+                        {canUseTasks && (
+                            <Button
+                                onClick={() =>
+                                    router.visit(`/tasks?customer_id=${c.id}`)
+                                }
+                            >
+                                Nhiệm vụ
+                            </Button>
+                        )}
 
                         {can.reassign && (
                             <Button
@@ -625,6 +641,7 @@ export default function Show() {
                                     currentUserId={auth.user!.id}
                                     canCreate={can.update}
                                     canCreateReminder={auth.user?.role !== "sales"}
+                                    canViewTasks={canUseTasks}
                                 />
                             ),
                         },
@@ -668,7 +685,7 @@ export default function Show() {
                                 </>
                             ),
                         },
-                        {
+                        ...(canViewOpportunities ? [{
                             key: "opportunities",
                             label: `Cơ hội kinh doanh (${opportunities.length})`,
                             children: (
@@ -710,7 +727,7 @@ export default function Show() {
                                     />
                                 </>
                             ),
-                        },
+                        }] : []),
                         {
                             key: "owners",
                             label: "Lịch sử phụ trách",

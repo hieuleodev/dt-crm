@@ -40,6 +40,8 @@ export default function Index() {
     const { auth, canAssign, filters, summary, statusCounts, upcomingTasks, team, assignees, options } = usePage<Props>().props;
     const [editor, setEditor] = useState<{ assigneeId?: number } | null>(null);
     const [filtering, setFiltering] = useState(false);
+    // Dữ liệu nhiệm vụ gửi xuống đã được máy chủ lọc theo người xem.
+    const canSeeTasks = auth.user !== null;
     const taskUrl = (bucket = "open", assigneeId = filters.assignee_id) =>
         `/tasks?bucket=${bucket}${assigneeId ? `&assignee_id=${assigneeId}` : ""}`;
     const totalTasks = statusCounts.reduce((total, item) => total + item.total, 0);
@@ -89,6 +91,7 @@ export default function Index() {
                     </Card>)}
                 </div>
 
+                {canSeeTasks && (
                 <div className="crm-dashboard__panels">
                     <Card title={canAssign ? "Việc cần ưu tiên" : "Công việc được giao"} extra={<Link href={taskUrl()}>Xem tất cả</Link>}>
                         {canAssign && <p className="crm-dashboard__hint">Các việc chưa hoàn thành, sắp xếp theo hạn xử lý gần nhất; việc quá hạn đứng trước.</p>}
@@ -110,6 +113,7 @@ export default function Index() {
                         <ul className="crm-dashboard__statuses">{statusCounts.map((item) => <li key={item.status}><span>{item.label}</span><strong>{item.total}</strong></li>)}</ul>
                     </Card>
                 </div>
+                )}
 
                 {canAssign && <Card title="Phân công và khối lượng công việc" extra={<Tag>Toàn bộ đội ngũ đang hoạt động</Tag>}>
                     <p className="crm-dashboard__hint">Chọn “Giao việc” để tạo nhiệm vụ cho đúng người. Cột đang thực hiện và quá hạn là các phần của số việc chưa hoàn thành.</p>

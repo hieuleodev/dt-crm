@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Auth;
 
+use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\RateLimiter;
@@ -15,6 +16,14 @@ class LoginRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        $email = $this->input('email');
+        if (is_string($email)) {
+            $this->merge(['email' => User::normalizeLoginEmail($email)]);
+        }
+    }
+
     public function rules(): array
     {
         return [
@@ -25,7 +34,7 @@ class LoginRequest extends FormRequest
 
     public function authenticate(): void
     {
-        $key = Str::transliterate(Str::lower($this->string('email')).'|'.$this->ip());
+        $key = Str::transliterate($this->string('email').'|'.$this->ip());
 
         if (RateLimiter::tooManyAttempts($key, 5)) {
             throw ValidationException::withMessages([

@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Enums\Staff\UserRole;
 use App\Models\Lead;
+use App\Models\SapoProduct;
 use App\Models\User;
 use App\Services\Customer\SaveCustomer;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -123,6 +124,15 @@ class OpportunityTest extends TestCase
             'probability' => 30,
         ]);
 
+        $customer = $lead->fresh()->customer;
+        $this->assertNotNull($customer);
+        $this->assertDatabaseHas('customers', [
+            'id' => $customer->id,
+            'name' => 'Lê Văn C',
+            'owner_id' => $sales->id,
+            'lifecycle_stage' => 'quoting',
+        ]);
+
         $this->actingAs($sales)
             ->get(route('opportunities.index'))
             ->assertOk()
@@ -133,8 +143,264 @@ class OpportunityTest extends TestCase
                 ->where("stageHistory.{$lead->id}.0.by", $sales->name));
 
         $this->post(route('leads.convert', $lead))->assertSessionHas('error');
+        $this->assertDatabaseCount('customers', 1);
         $this->get(route('opportunities.index'))
             ->assertInertia(fn ($page) => $page->has("stageHistory.{$lead->id}", 1));
+    }
+
+    public function test_lead_validates_contact_details_and_creates_a_linked_customer_when_converted(): void
+    {
+        $this->withoutVite();
+        $sales = User::factory()->create(['role' => UserRole::Sales, 'is_active' => true]);
+        $payload = [
+            'title' => 'Báo giá găng tay',
+            'contact_name' => 'Mai Anh',
+            'company' => 'Công ty Kiểm thử',
+            'stage' => 'qualified',
+            'estimated_value' => '500000',
+            'notes' => 'Trao đổi qua email',
+        ];
+
+        $this->actingAs($sales)->post(route('leads.store'), [
+            ...$payload,
+            'phone' => 'a0912345678',
+            'email' => 'sai-dinh-dang',
+        ])->assertSessionHasErrors(['phone', 'email']);
+        $this->assertDatabaseCount('leads', 0);
+
+        $this->post(route('leads.store'), [
+            ...$payload,
+            'phone' => '+84 (912) 345-678',
+            'email' => 'Mai.Anh@example.test',
+        ])->assertSessionHasNoErrors();
+        $lead = Lead::query()->sole();
+
+        $this->put(route('leads.update', $lead), [
+            ...$payload,
+            'phone' => '123',
+            'email' => 'khong-hop-le',
+        ])->assertSessionHasErrors(['phone', 'email']);
+
+        $this->post(route('leads.convert', $lead))->assertSessionHasNoErrors();
+        $customer = $lead->fresh()->customer;
+        $this->assertNotNull($customer);
+        $this->assertDatabaseHas('customers', [
+            'id' => $customer->id,
+            'name' => $payload['company'],
+            'phone' => '+84912345678',
+            'email' => 'mai.anh@example.test',
+            'owner_id' => $sales->id,
+            'lifecycle_stage' => 'quoting',
+            'ppe_budget_estimate' => 500000,
+            'notes' => $payload['notes'],
+        ]);
+        $this->assertDatabaseHas('contacts', [
+            'customer_id' => $customer->id,
+            'full_name' => $payload['contact_name'],
+            'phone' => '+84912345678',
+            'email' => 'mai.anh@example.test',
+            'is_primary' => true,
+        ]);
+        $this->get(route('customers.show', $customer))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->where('opportunities.0.id', $lead->id));
+    }
+
+    public function test_lead_form_requires_email_and_allows_an_empty_estimated_value(): void
+    {
+        $sales = User::factory()->create(['role' => UserRole::Sales, 'is_active' => true]);
+        $payload = [
+            'title' => 'Lead chưa có giá dự kiến',
+            'contact_name' => 'Nguyễn Mai',
+            'stage' => 'new',
+            'estimated_value' => '',
+        ];
+
+        $this->actingAs($sales)->post(route('leads.store'), $payload)
+            ->assertSessionHasErrors(['email' => 'Vui lòng nhập email.'])
+            ->assertSessionDoesntHaveErrors('estimated_value');
+        $this->assertDatabaseCount('leads', 0);
+
+        $this->post(route('leads.store'), [...$payload, 'email' => 'mai@example.test'])
+            ->assertSessionHasNoErrors();
+        $lead = Lead::query()->sole();
+        $this->assertSame('0.00', $lead->estimated_value);
+
+        $this->put(route('leads.update', $lead), [...$payload, 'email' => ''])
+            ->assertSessionHasErrors('email');
+        $this->assertSame('mai@example.test', $lead->fresh()->email);
+    }
+
+    public function test_conversion_requires_correction_of_legacy_invalid_contact_details(): void
+    {
+        $sales = User::factory()->create(['role' => UserRole::Sales, 'is_active' => true]);
+        $lead = Lead::forceCreate([
+            'owner_id' => $sales->id,
+            'title' => 'Lead dữ liệu cũ',
+            'contact_name' => 'Người liên hệ',
+            'stage' => 'qualified',
+            'phone' => 'a',
+            'email' => 'legacy',
+        ]);
+
+        $this->actingAs($sales)->post(route('leads.convert', $lead))
+            ->assertSessionHasErrors(['email', 'phone']);
+
+        $this->assertDatabaseHas('leads', ['id' => $lead->id, 'kind' => 'lead', 'customer_id' => null]);
+        $this->assertDatabaseCount('customers', 0);
+    }
+
+    public function test_conversion_reuses_matching_customer_owned_by_the_lead_owner(): void
+    {
+        $sales = User::factory()->create(['role' => UserRole::Sales, 'is_active' => true]);
+        $otherSales = User::factory()->create(['role' => UserRole::Sales, 'is_active' => true]);
+        $manager = User::factory()->create(['role' => UserRole::Manager, 'is_active' => true]);
+        $saveCustomer = app(SaveCustomer::class);
+        $saveCustomer->handle(['name' => 'Công ty Kiểm thử', 'email' => 'mai@example.test'], $otherSales);
+        $customer = $saveCustomer->handle(['name' => 'Công ty Kiểm thử', 'lifecycle_stage' => 'loyal'], $sales);
+        $customer->contacts()->create(['full_name' => 'Mai Anh', 'phone' => '0912345678']);
+        $lead = Lead::forceCreate([
+            'owner_id' => $sales->id,
+            'title' => 'Nhu cầu mới',
+            'contact_name' => 'Mai Anh',
+            'company' => 'Công ty Kiểm thử',
+            'stage' => 'qualified',
+            'phone' => '+84 912 345 678',
+            'email' => 'mai@example.test',
+        ]);
+
+        $this->actingAs($manager)->post(route('leads.convert', $lead))->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('leads', ['id' => $lead->id, 'kind' => 'opportunity', 'customer_id' => $customer->id]);
+        $this->assertDatabaseHas('customers', ['id' => $customer->id, 'owner_id' => $sales->id, 'lifecycle_stage' => 'loyal']);
+        $this->assertDatabaseCount('customers', 2);
+        $this->assertDatabaseCount('contacts', 1);
+    }
+
+    public function test_conversion_keeps_lead_unchanged_when_multiple_customers_match(): void
+    {
+        $sales = User::factory()->create(['role' => UserRole::Sales, 'is_active' => true]);
+        $saveCustomer = app(SaveCustomer::class);
+        foreach (['Công ty A', 'Công ty B'] as $name) {
+            $saveCustomer->handle(['name' => $name, 'phone' => '0912345678'], $sales);
+        }
+        $lead = Lead::forceCreate([
+            'owner_id' => $sales->id,
+            'title' => 'Lead cần đối chiếu',
+            'contact_name' => 'Khách kiểm thử',
+            'stage' => 'qualified',
+            'phone' => '0912345678',
+        ]);
+
+        $this->actingAs($sales)->post(route('leads.convert', $lead))
+            ->assertSessionHasErrors('customer_id');
+
+        $this->assertDatabaseHas('leads', ['id' => $lead->id, 'kind' => 'lead', 'customer_id' => null]);
+        $this->assertDatabaseCount('customers', 2);
+    }
+
+    public function test_lead_product_quantity_and_unit_price_set_opportunity_value_on_conversion(): void
+    {
+        $this->withoutVite();
+        $sales = User::factory()->create(['role' => UserRole::Sales, 'is_active' => true]);
+        SapoProduct::create([
+            'sapo_product_id' => 100,
+            'sapo_variant_id' => 200,
+            'product_name' => 'Giày bảo hộ S3',
+            'variant_name' => 'Default Title',
+            'sku' => 'S3-01',
+            'unit_price' => '1200.10',
+            'synced_at' => now(),
+        ]);
+        $this->actingAs($sales)->post(route('leads.store'), [
+            'title' => 'Nhu cầu giày bảo hộ',
+            'sapo_variant_id' => '200',
+            'contact_name' => 'Nguyễn Văn An',
+            'email' => 'an@example.test',
+            'stage' => 'qualified',
+            'estimated_value' => '0',
+        ])->assertSessionHasNoErrors();
+
+        $lead = Lead::query()->where('title', 'Nhu cầu giày bảo hộ')->sole();
+
+        $this->post(route('leads.convert', $lead))
+            ->assertSessionHasErrors(['quantity', 'unit_price']);
+
+        $this->post(route('leads.convert', $lead), [
+            'quantity' => '2.1234',
+            'unit_price' => '1200.101',
+        ])->assertSessionHasErrors(['quantity', 'unit_price']);
+
+        $this->post(route('leads.convert', $lead), [
+            'quantity' => '2.5',
+            'unit_price' => '1200.10',
+        ])->assertSessionHasErrors(['quantity' => 'Số lượng phải là số nguyên dương.']);
+
+        $this->post(route('leads.convert', $lead), [
+            'quantity' => '0',
+            'unit_price' => '1200.10',
+        ])->assertSessionHasErrors('quantity');
+
+        $this->assertDatabaseHas('leads', ['id' => $lead->id, 'kind' => 'lead']);
+
+        $this->post(route('leads.convert', $lead), [
+            'quantity' => '3',
+            'unit_price' => '1200.10',
+        ])->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('leads', [
+            'id' => $lead->id,
+            'kind' => 'opportunity',
+            'requested_product' => 'Giày bảo hộ S3',
+            'sapo_product_id' => 100,
+            'sapo_variant_id' => 200,
+            'requested_quantity' => '3.000',
+            'requested_unit_price' => '1200.10',
+            'estimated_value' => '3600.30',
+        ]);
+    }
+
+    public function test_editing_an_opportunity_from_leads_preserves_its_quoted_product_price(): void
+    {
+        $sales = User::factory()->create(['role' => UserRole::Sales, 'is_active' => true]);
+        SapoProduct::create([
+            'sapo_product_id' => 100,
+            'sapo_variant_id' => 200,
+            'product_name' => 'Tên sản phẩm mới trong danh mục',
+            'unit_price' => '1200.10',
+            'synced_at' => now(),
+        ]);
+        $opportunity = Lead::forceCreate([
+            'owner_id' => $sales->id,
+            'title' => 'Cơ hội ban đầu',
+            'contact_name' => 'Khách kiểm thử',
+            'kind' => 'opportunity',
+            'stage' => 'proposal',
+            'sapo_product_id' => 100,
+            'sapo_variant_id' => 200,
+            'requested_product' => 'Tên sản phẩm đã báo giá',
+            'requested_quantity' => '2.500',
+            'requested_unit_price' => '1500.00',
+            'estimated_value' => '3750.00',
+        ]);
+
+        $this->actingAs($sales)->put(route('leads.update', $opportunity), [
+            'title' => 'Cơ hội đã chỉnh sửa',
+            'contact_name' => $opportunity->contact_name,
+            'email' => 'buyer@example.test',
+            'stage' => 'proposal',
+            'sapo_variant_id' => '200',
+            'estimated_value' => '3750.00',
+        ])->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('leads', [
+            'id' => $opportunity->id,
+            'title' => 'Cơ hội đã chỉnh sửa',
+            'requested_product' => 'Tên sản phẩm đã báo giá',
+            'requested_quantity' => '2.500',
+            'requested_unit_price' => '1500.00',
+            'estimated_value' => '3750.00',
+        ]);
     }
 
     public function test_stage_history_records_times_and_actors_for_quick_and_form_updates(): void

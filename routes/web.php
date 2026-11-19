@@ -13,6 +13,9 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ImportController;
 use App\Http\Controllers\LeadController;
 use App\Http\Controllers\OpportunityController;
+use App\Http\Controllers\SapoOAuthController;
+use App\Http\Controllers\SapoProductController;
+use App\Http\Controllers\UserManagementController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('guest')->group(function () {
@@ -20,9 +23,22 @@ Route::middleware('guest')->group(function () {
     Route::post('/login', [LoginController::class, 'store'])->middleware('throttle:10,1');
 });
 
+// Callback cần truy cập được khi chưa đăng nhập; controller xác minh state một lần và HMAC trước khi đổi code.
+Route::get('/sapo/oauth/callback', [SapoOAuthController::class, 'callback'])
+    ->middleware('throttle:20,1')
+    ->name('sapo.oauth.callback');
+
 Route::middleware('auth')->group(function () {
     Route::get('/', DashboardController::class)->name('dashboard');
     Route::post('/logout', [LoginController::class, 'destroy'])->name('logout');
+
+    // Controller kiểm tra vai trò Admin hoặc Manager cho cả xem danh sách, tạo và sửa tài khoản.
+    Route::get('/users', [UserManagementController::class, 'index'])->name('users.index');
+    Route::post('/users', [UserManagementController::class, 'store'])->name('users.store');
+    Route::put('/users/{managedUser}', [UserManagementController::class, 'update'])->name('users.update');
+    Route::get('/sapo/oauth/install', [SapoOAuthController::class, 'install'])
+        ->middleware('throttle:10,1')
+        ->name('sapo.oauth.install');
 
     // Imports
     Route::get('/imports', [ImportController::class, 'index'])->name('imports.index');
@@ -32,41 +48,50 @@ Route::middleware('auth')->group(function () {
         ->whereIn('format', ['csv', 'xlsx'])
         ->name('imports.template');
 
-    // Lead
-    Route::get('/leads', [LeadController::class, 'index'])->name('leads.index');
-    Route::post('/leads', [LeadController::class, 'store'])->name('leads.store');
-    Route::put('/leads/{lead}', [LeadController::class, 'update'])->name('leads.update');
-    Route::post('/leads/{lead}/convert', [LeadController::class, 'convert'])->name('leads.convert');
+    // Chặn quyền tại route phía máy chủ; ẩn menu ở giao diện không thay thế được bước kiểm tra này.
+    Route::middleware('work.permission:leads')->group(function () {
+        Route::get('/leads', [LeadController::class, 'index'])->name('leads.index');
+        Route::post('/leads', [LeadController::class, 'store'])->name('leads.store');
+        Route::put('/leads/{lead}', [LeadController::class, 'update'])->name('leads.update');
+        Route::post('/leads/{lead}/convert', [LeadController::class, 'convert'])->name('leads.convert');
+    });
 
-    // Cơ hội kinh doanh
-    Route::get('/opportunities', [OpportunityController::class, 'index'])->name('opportunities.index');
-    Route::post('/opportunities', [OpportunityController::class, 'store'])->name('opportunities.store');
-    Route::put('/opportunities/{opportunity}', [OpportunityController::class, 'update'])->whereNumber('opportunity')->name('opportunities.update');
-    Route::delete('/opportunities/{opportunity}', [OpportunityController::class, 'destroy'])->whereNumber('opportunity')->name('opportunities.destroy');
-    Route::patch('/opportunities/{opportunity}/stage', [OpportunityController::class, 'updateStage'])->whereNumber('opportunity')->name('opportunities.stage');
-    Route::post('/opportunities/{opportunity}/convert-customer', [OpportunityController::class, 'convertToCustomer'])->whereNumber('opportunity')->name('opportunities.convert-customer');
+    Route::middleware('work.permission:opportunities')->group(function () {
+        Route::get('/opportunities', [OpportunityController::class, 'index'])->name('opportunities.index');
+        Route::post('/opportunities', [OpportunityController::class, 'store'])->name('opportunities.store');
+        Route::put('/opportunities/{opportunity}', [OpportunityController::class, 'update'])->whereNumber('opportunity')->name('opportunities.update');
+        Route::delete('/opportunities/{opportunity}', [OpportunityController::class, 'destroy'])->whereNumber('opportunity')->name('opportunities.destroy');
+        Route::patch('/opportunities/{opportunity}/stage', [OpportunityController::class, 'updateStage'])->whereNumber('opportunity')->name('opportunities.stage');
+        Route::post('/opportunities/{opportunity}/convert-customer', [OpportunityController::class, 'convertToCustomer'])->whereNumber('opportunity')->name('opportunities.convert-customer');
+    });
 
-    // Khách hàng
-    Route::get('/customers/check-duplicates', DuplicateCheckController::class)->name('customers.check-duplicates');
-    Route::resource('customers', CustomerController::class);
-    Route::post('/customers/{customer}/reassign', [CustomerController::class, 'reassign'])->name('customers.reassign');
-    Route::resource('customers.contacts', ContactController::class)->only(['store', 'update', 'destroy'])->scoped();
-    Route::resource('customers.plants', PlantController::class)->only(['store', 'update', 'destroy'])->scoped();
+    Route::middleware('work.permission:customers')->group(function () {
+        Route::get('/customers/check-duplicates', DuplicateCheckController::class)->name('customers.check-duplicates');
+        Route::resource('customers', CustomerController::class);
+        Route::post('/customers/{customer}/reassign', [CustomerController::class, 'reassign'])->name('customers.reassign');
+        Route::resource('customers.contacts', ContactController::class)->only(['store', 'update', 'destroy'])->scoped();
+        Route::resource('customers.plants', PlantController::class)->only(['store', 'update', 'destroy'])->scoped();
+        Route::get('/customers/{customer}/notes', [CustomerNoteController::class, 'index'])->name('customers.notes.index');
+        Route::post('/customers/{customer}/notes', [CustomerNoteController::class, 'store'])->name('customers.notes.store');
+    });
 
-    // Tasks
-    Route::get('/tasks/references', [TaskController::class, 'references'])->name('tasks.references');
-    Route::get('/tasks', [TaskController::class, 'index'])->name('tasks.index');
-    Route::post('/tasks', [TaskController::class, 'store'])->name('tasks.store');
-    Route::put('/tasks/{task}', [TaskController::class, 'update'])->whereNumber('task')->name('tasks.update');
-    Route::patch('/tasks/{task}/status', [TaskController::class, 'status'])->whereNumber('task')->name('tasks.status');
+    Route::middleware('work.permission:tasks')->group(function () {
+        Route::get('/tasks/references', [TaskController::class, 'references'])->name('tasks.references');
+        Route::get('/tasks', [TaskController::class, 'index'])->name('tasks.index');
+        Route::post('/tasks', [TaskController::class, 'store'])->name('tasks.store');
+        Route::put('/tasks/{task}', [TaskController::class, 'update'])->whereNumber('task')->name('tasks.update');
+        Route::patch('/tasks/{task}/status', [TaskController::class, 'status'])->whereNumber('task')->name('tasks.status');
+        Route::get('/workbench', WorkbenchController::class)->name('workbench');
+    });
 
-    // Calendar
-    Route::get('/calendar', [CalendarController::class, 'index'])->name('calendar.index');
+    Route::middleware('work.permission:calendar')->group(function () {
+        Route::get('/calendar', [CalendarController::class, 'index'])->name('calendar.index');
+    });
 
-    // Today tasks / Workbench
-    Route::get('/workbench', WorkbenchController::class)->name('workbench');
-
-    // Notes customer
-    Route::get('/customers/{customer}/notes', [CustomerNoteController::class, 'index'])->name('customers.notes.index');
-    Route::post('/customers/{customer}/notes', [CustomerNoteController::class, 'store'])->name('customers.notes.store');
+    // Người có quyền Lead được tìm catalog; controller chỉ cho Admin/Manager gọi API đồng bộ.
+    Route::middleware('work.permission:leads')->group(function () {
+        Route::get('/sapo/products', [SapoProductController::class, 'index'])->name('sapo.products.index');
+        Route::get('/sapo/products/sync/status', [SapoProductController::class, 'syncStatus'])->name('sapo.products.sync-status');
+        Route::post('/sapo/products/sync', [SapoProductController::class, 'sync'])->name('sapo.products.sync');
+    });
 });

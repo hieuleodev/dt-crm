@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Head, router, useForm } from "@inertiajs/react";
+import { Head, router, useForm, usePage } from "@inertiajs/react";
 import {
     Alert,
     App,
@@ -25,14 +25,21 @@ import {
     ArrowRightOutlined,
     EditOutlined,
     PlusOutlined,
+    SyncOutlined,
 } from "@ant-design/icons";
 import AppLayout from "@/layouts/AppLayout";
+import type { PageProps } from "@/types";
 
 type Kind = "lead" | "opportunity";
 
 interface Lead {
     id: number;
     title: string;
+    requested_product: string | null;
+    sapo_product_id: number | null;
+    sapo_variant_id: number | null;
+    requested_quantity: string | null;
+    requested_unit_price: string | null;
     contact_name: string;
     company: string | null;
     email: string | null;
@@ -46,6 +53,7 @@ interface Lead {
 
 interface LeadForm {
     title: string;
+    sapo_variant_id: string | null;
     contact_name: string;
     company: string;
     email: string;
@@ -54,6 +62,27 @@ interface LeadForm {
     estimated_value: string;
     notes: string;
 }
+
+interface SapoProductOption {
+    sapo_product_id: string;
+    sapo_variant_id: string;
+    product_name: string;
+    variant_name: string | null;
+    sku: string | null;
+    unit_price: string;
+    vendor: string | null;
+    product_type: string | null;
+    description: string | null;
+    image_url: string | null;
+    product_status: string | null;
+    tags: string[];
+    label: string;
+}
+
+type CatalogSyncStatus = {
+    state: "idle" | "queued" | "running" | "succeeded" | "failed";
+    message: string | null;
+};
 
 interface Filters {
     q: string;
@@ -76,16 +105,19 @@ interface Props {
         opportunities: number;
         open_value: string;
     };
+    canSyncProducts: boolean;
+    productsLastSyncedAt: string | null;
 }
 
 const EMPTY_FORM: LeadForm = {
     title: "",
+    sapo_variant_id: null,
     contact_name: "",
     company: "",
     email: "",
     phone: "",
     stage: "new",
-    estimated_value: "0",
+    estimated_value: "",
     notes: "",
 };
 
@@ -95,20 +127,139 @@ const money = new Intl.NumberFormat("vi-VN", {
     maximumFractionDigits: 0,
 });
 
-export default function Index({ leads, filters, stages, summary }: Props) {
+export default function Index({
+    leads,
+    filters,
+    stages,
+    summary,
+    canSyncProducts,
+    productsLastSyncedAt,
+}: Props) {
     const { message } = App.useApp();
+    const { auth } = usePage<PageProps>().props;
+    const canUseTasks = auth.user !== null;
 
     const [search, setSearch] = useState(filters.q);
     const [loading, setLoading] = useState(false);
     const [modalOpen, setModalOpen] = useState(false);
     const [editing, setEditing] = useState<Lead | null>(null);
     const [converting, setConverting] = useState<number | null>(null);
+    const [conversionLead, setConversionLead] = useState<Lead | null>(null);
+    const [productSearch, setProductSearch] = useState("");
+    const [productOptions, setProductOptions] = useState<SapoProductOption[]>([]);
+    const [catalogLoading, setCatalogLoading] = useState(false);
+    const [catalogRevision, setCatalogRevision] = useState(0);
+    const [syncingProducts, setSyncingProducts] = useState(false);
+    const [syncStatusRevision, setSyncStatusRevision] = useState(0);
+    const [syncStatus, setSyncStatus] = useState<CatalogSyncStatus>({
+        state: "idle",
+        message: null,
+    });
+    const syncInProgress =
+        syncStatus.state === "queued" || syncStatus.state === "running";
 
     const form = useForm<LeadForm>({ ...EMPTY_FORM });
+    const conversionForm = useForm({ quantity: "1", unit_price: "0" });
+    const selectedProduct = productOptions.find(
+        (product) => product.sapo_variant_id === form.data.sapo_variant_id,
+    );
 
     useEffect(() => {
         setSearch(filters.q);
     }, [filters.q]);
+
+    // Theo dõi trạng thái từ worker. Chỉ hỏi lặp lại khi có lượt đang chờ hoặc đang chạy.
+    useEffect(() => {
+        if (!canSyncProducts) return;
+
+        const controller = new AbortController();
+        let nextCheck: number | undefined;
+        let awaitingResult = syncStatusRevision > 0;
+
+        async function checkStatus() {
+            try {
+                const response = await fetch("/sapo/products/sync/status", {
+                    headers: { Accept: "application/json" },
+                    signal: controller.signal,
+                    cache: "no-store",
+                });
+                if (!response.ok) throw new Error();
+                const status = (await response.json()) as CatalogSyncStatus;
+                if (controller.signal.aborted) return;
+
+                setSyncStatus(status);
+                if (status.state === "queued" || status.state === "running") {
+                    awaitingResult = true;
+                    nextCheck = window.setTimeout(checkStatus, 5000);
+                } else if (status.state === "succeeded" && awaitingResult) {
+                    setCatalogRevision((revision) => revision + 1);
+                    router.reload({ only: ["productsLastSyncedAt"] });
+                }
+            } catch {
+                if (!controller.signal.aborted && awaitingResult) {
+                    nextCheck = window.setTimeout(checkStatus, 5000);
+                }
+            }
+        }
+
+        void checkStatus();
+        return () => {
+            controller.abort();
+            window.clearTimeout(nextCheck);
+        };
+    }, [canSyncProducts, syncStatusRevision]);
+
+    // Đợi người dùng ngừng gõ rồi tìm trong danh mục CRM. Hủy truy vấn cũ khi từ khóa đổi.
+    useEffect(() => {
+        if (!modalOpen) {
+            setCatalogLoading(false);
+            return;
+        }
+
+        const query = productSearch.trim();
+        if (query.length < 2) {
+            setProductOptions([]);
+            setCatalogLoading(false);
+            return;
+        }
+
+        const controller = new AbortController();
+        setCatalogLoading(true);
+        const timeout = window.setTimeout(async () => {
+            try {
+                const response = await fetch(
+                    `/sapo/products?q=${encodeURIComponent(query)}`,
+                    {
+                        headers: { Accept: "application/json" },
+                        signal: controller.signal,
+                    },
+                );
+                if (!response.ok) {
+                    throw new Error(
+                        `Không thể tìm sản phẩm (HTTP ${response.status}).`,
+                    );
+                }
+                const result = (await response.json()) as {
+                    data: SapoProductOption[];
+                };
+                if (!controller.signal.aborted) setProductOptions(result.data);
+            } catch (error) {
+                if (controller.signal.aborted) return;
+                const errorMessage =
+                    error instanceof Error
+                        ? error.message
+                        : "Không thể tìm sản phẩm trong danh mục Sapo.";
+                message.error(errorMessage);
+            } finally {
+                if (!controller.signal.aborted) setCatalogLoading(false);
+            }
+        }, 300);
+
+        return () => {
+            window.clearTimeout(timeout);
+            controller.abort();
+        };
+    }, [catalogRevision, message, modalOpen, productSearch]);
 
     const editingKind: Kind = editing?.kind ?? "lead";
 
@@ -141,6 +292,8 @@ export default function Index({ leads, filters, stages, summary }: Props) {
     function openCreate() {
         form.clearErrors();
         form.setData({ ...EMPTY_FORM });
+        setProductOptions([]);
+        setProductSearch("");
         setEditing(null);
         setModalOpen(true);
     }
@@ -150,6 +303,9 @@ export default function Index({ leads, filters, stages, summary }: Props) {
 
         form.setData({
             title: lead.title,
+            sapo_variant_id: lead.sapo_variant_id
+                ? String(lead.sapo_variant_id)
+                : null,
             contact_name: lead.contact_name,
             company: lead.company ?? "",
             email: lead.email ?? "",
@@ -158,6 +314,31 @@ export default function Index({ leads, filters, stages, summary }: Props) {
             estimated_value: lead.estimated_value,
             notes: lead.notes ?? "",
         });
+        // Hiển thị tên và giá đã lưu trên Lead trong lúc tải kết quả từ danh mục.
+        setProductOptions(
+            lead.sapo_variant_id && lead.requested_product
+                ? [
+                      {
+                          sapo_product_id: String(lead.sapo_product_id ?? ""),
+                          sapo_variant_id: String(lead.sapo_variant_id),
+                          product_name: lead.requested_product,
+                          variant_name: null,
+                          sku: null,
+                          unit_price: lead.requested_unit_price ?? "0",
+                          vendor: null,
+                          product_type: null,
+                          description: null,
+                          image_url: null,
+                          product_status: null,
+                          tags: [],
+                          label: lead.requested_product,
+                      },
+                  ]
+                : [],
+        );
+        setProductSearch(
+            lead.sapo_variant_id ? lead.requested_product ?? "" : "",
+        );
 
         setEditing(lead);
         setModalOpen(true);
@@ -180,23 +361,65 @@ export default function Index({ leads, filters, stages, summary }: Props) {
         }
     }
 
-    function convert(lead: Lead) {
-        if (converting !== null) return;
+    // Dùng số lượng và đơn giá đã lưu làm giá trị ban đầu khi chuyển Lead sang Cơ hội.
+    function openConversion(lead: Lead) {
+        conversionForm.clearErrors();
+        conversionForm.setData({
+            quantity: lead.requested_quantity === null
+                ? "1"
+                : String(Number(lead.requested_quantity)),
+            unit_price: lead.requested_unit_price ?? "0",
+        });
+        setConversionLead(lead);
+    }
 
-        router.post(
-            `/leads/${lead.id}/convert`,
-            {},
-            {
-                preserveScroll: true,
-                onStart: () => setConverting(lead.id),
-                onFinish: () => setConverting(null),
-                onError: () => {
-                    message.error(
-                        "Không thể chuyển đổi Lead. Vui lòng thử lại.",
-                    );
-                },
+    function convert() {
+        if (!conversionLead || converting !== null) return;
+
+        conversionForm.post(`/leads/${conversionLead.id}/convert`, {
+            preserveScroll: true,
+            onStart: () => setConverting(conversionLead.id),
+            onSuccess: () => setConversionLead(null),
+            onFinish: () => setConverting(null),
+            onError: (errors) => {
+                // Lead lưu trước khi có quy tắc mới có thể cần sửa liên hệ rồi mới chuyển được.
+                const contactError = Object.entries(errors).find(([field]) =>
+                    ["phone", "email"].includes(field),
+                )?.[1];
+                const customerError = Object.entries(errors).find(
+                    ([field]) => field === "customer_id",
+                )?.[1];
+                if (typeof contactError === "string") {
+                    message.error(`${contactError} Hãy sửa thông tin Lead rồi thử lại.`);
+                    return;
+                }
+                if (typeof customerError === "string") {
+                    message.error(customerError);
+                    return;
+                }
+                message.error("Không thể chuyển đổi Lead. Vui lòng kiểm tra số lượng và đơn giá.");
             },
-        );
+        });
+    }
+
+    // POST chỉ xếp lịch. Danh mục được tải lại sau khi worker báo hoàn tất.
+    function syncProducts() {
+        router.post("/sapo/products/sync", {}, {
+            preserveScroll: true,
+            onStart: () => setSyncingProducts(true),
+            onSuccess: () => {
+                setSyncStatus({ state: "queued", message: "Đang chờ đồng bộ Sapo" });
+                setSyncStatusRevision((revision) => revision + 1);
+            },
+            onFinish: () => setSyncingProducts(false),
+            onError: (errors) => {
+                message.error(
+                    typeof errors.sapo === "string"
+                        ? errors.sapo
+                        : "Không đồng bộ được danh mục sản phẩm Sapo.",
+                );
+            },
+        });
     }
 
     function field(name: keyof LeadForm, label: string) {
@@ -236,6 +459,11 @@ export default function Index({ leads, filters, stages, summary }: Props) {
                     {lead.company && (
                         <Typography.Text type="secondary">
                             {lead.company}
+                        </Typography.Text>
+                    )}
+                    {lead.requested_product && (
+                        <Typography.Text type="secondary">
+                            Sản phẩm: {lead.requested_product}
                         </Typography.Text>
                     )}
                 </div>
@@ -296,20 +524,22 @@ export default function Index({ leads, filters, stages, summary }: Props) {
                     >
                         Chỉnh sửa
                     </Button>
-                    <Button
-                        onClick={() =>
-                            router.visit(`/tasks?lead_id=${lead.id}`)
-                        }
-                    >
-                        Nhiệm vụ
-                    </Button>
+                    {canUseTasks && (
+                        <Button
+                            onClick={() =>
+                                router.visit(`/tasks?lead_id=${lead.id}`)
+                            }
+                        >
+                            Nhiệm vụ
+                        </Button>
+                    )}
                     {lead.kind === "lead" && lead.stage === "qualified" && (
                         <Popconfirm
                             title="Chuyển thành Cơ hội?"
                             description="Thông tin và người phụ trách được giữ nguyên."
                             okText="Chuyển đổi"
                             cancelText="Hủy"
-                            onConfirm={() => convert(lead)}
+                            onConfirm={() => openConversion(lead)}
                             disabled={converting !== null}
                         >
                             <Button
@@ -337,14 +567,33 @@ export default function Index({ leads, filters, stages, summary }: Props) {
                             Lead & Cơ hội
                         </Typography.Title>
                     </div>
-
-                    <Button
-                        type="primary"
-                        icon={<PlusOutlined />}
-                        onClick={openCreate}
-                    >
-                        Tạo Lead
-                    </Button>
+                    <Space wrap>
+                        {canSyncProducts && (
+                            <Button
+                                icon={<SyncOutlined />}
+                                loading={syncingProducts || syncInProgress}
+                                disabled={syncingProducts || syncInProgress}
+                                onClick={syncProducts}
+                            >
+                                {syncInProgress ? syncStatus.message : "Đồng bộ dữ liệu"}
+                            </Button>
+                        )}
+                        {canSyncProducts && !syncInProgress && syncStatus.message && (
+                            <Typography.Text
+                                type={syncStatus.state === "failed" ? "danger" : "secondary"}
+                                role="status"
+                            >
+                                {syncStatus.message}
+                            </Typography.Text>
+                        )}
+                        <Button
+                            type="primary"
+                            icon={<PlusOutlined />}
+                            onClick={openCreate}
+                        >
+                            Tạo Lead
+                        </Button>
+                    </Space>
                 </header>
 
                 <Row gutter={[16, 16]}>
@@ -523,6 +772,119 @@ export default function Index({ leads, filters, stages, summary }: Props) {
                     </Form.Item>
 
                     <Row gutter={16}>
+                        <Col xs={24}>
+                            <Form.Item
+                                {...field("sapo_variant_id", "Sản phẩm")}
+                            >
+                                <Select
+                                    {...inputA11y("sapo_variant_id")}
+                                    showSearch={{
+                                        filterOption: false,
+                                        onSearch: setProductSearch,
+                                    }}
+                                    allowClear
+                                    value={
+                                        form.data.sapo_variant_id ?? undefined
+                                    }
+                                    loading={catalogLoading}
+                                    placeholder="Nhập tên sản phẩm hoặc SKU đã đồng bộ từ Sapo"
+                                    notFoundContent={
+                                        catalogLoading
+                                            ? "Đang tìm..."
+                                            : productSearch.trim().length < 2
+                                              ? "Nhập ít nhất 2 ký tự để tìm theo tên hoặc SKU."
+                                              : productsLastSyncedAt
+                                                ? "Không có sản phẩm khớp từ khóa."
+                                                : "Danh mục Sapo chưa có dữ liệu đồng bộ."
+                                    }
+                                    options={productOptions.map((product) => ({
+                                        value: product.sapo_variant_id,
+                                        label: product.label,
+                                    }))}
+                                    // Lưu mã biến thể vào một trường riêng. Giá trị dự kiến do người dùng nhập.
+                                    onChange={(variantId) =>
+                                        form.setData(
+                                            "sapo_variant_id",
+                                            variantId ?? null,
+                                        )
+                                    }
+                                />
+                            </Form.Item>
+                            {productsLastSyncedAt && (
+                                <Typography.Text type="secondary">
+                                    Danh mục đồng bộ lần cuối: {productsLastSyncedAt}
+                                </Typography.Text>
+                            )}
+                            {selectedProduct && (
+                                <Card
+                                    size="small"
+                                    className="sapo-product-details"
+                                    style={{ marginTop: 12 }}
+                                >
+                                    <Row gutter={16} wrap={false}>
+                                        {selectedProduct.image_url && (
+                                            <Col flex="96px">
+                                                <img
+                                                    src={selectedProduct.image_url}
+                                                    alt=""
+                                                    loading="lazy"
+                                                    style={{
+                                                        width: 80,
+                                                        height: 80,
+                                                        objectFit: "contain",
+                                                    }}
+                                                />
+                                            </Col>
+                                        )}
+                                        <Col flex="auto">
+                                            <Space wrap>
+                                                <Typography.Text strong>
+                                                    {selectedProduct.product_name}
+                                                </Typography.Text>
+                                                {selectedProduct.product_type && (
+                                                    <Tag>
+                                                        {selectedProduct.product_type}
+                                                    </Tag>
+                                                )}
+                                                {selectedProduct.product_status && (
+                                                    <Tag color="blue">
+                                                        {selectedProduct.product_status}
+                                                    </Tag>
+                                                )}
+                                            </Space>
+                                            <div>
+                                                {[selectedProduct.vendor, selectedProduct.sku]
+                                                    .filter(Boolean)
+                                                    .join(" · ")}
+                                            </div>
+                                            <Typography.Text>
+                                                {money.format(
+                                                    Number(selectedProduct.unit_price),
+                                                )}
+                                            </Typography.Text>
+                                            {selectedProduct.tags.length > 0 && (
+                                                <div>
+                                                    <Space size={[0, 4]} wrap>
+                                                        {selectedProduct.tags.map((tag) => (
+                                                            <Tag key={tag}>{tag}</Tag>
+                                                        ))}
+                                                    </Space>
+                                                </div>
+                                            )}
+                                            {selectedProduct.description && (
+                                                <Typography.Paragraph
+                                                    type="secondary"
+                                                    ellipsis={{ rows: 3 }}
+                                                    style={{ marginTop: 8, marginBottom: 0 }}
+                                                >
+                                                    {selectedProduct.description}
+                                                </Typography.Paragraph>
+                                            )}
+                                        </Col>
+                                    </Row>
+                                </Card>
+                            )}
+                        </Col>
                         <Col xs={24} sm={12}>
                             <Form.Item
                                 {...field("contact_name", "Người liên hệ")}
@@ -559,9 +921,10 @@ export default function Index({ leads, filters, stages, summary }: Props) {
                         </Col>
 
                         <Col xs={24} sm={12}>
-                            <Form.Item {...field("email", "Email")}>
+                            <Form.Item {...field("email", "Email")} required>
                                 <Input
                                     {...inputA11y("email")}
+                                    aria-required="true"
                                     type="email"
                                     maxLength={255}
                                     value={form.data.email}
@@ -619,7 +982,6 @@ export default function Index({ leads, filters, stages, summary }: Props) {
                                     "estimated_value",
                                     "Giá trị dự kiến (VND)",
                                 )}
-                                required
                             >
                                 <InputNumber<string>
                                     {...inputA11y("estimated_value")}
@@ -632,7 +994,7 @@ export default function Index({ leads, filters, stages, summary }: Props) {
                                     onChange={(value) =>
                                         form.setData(
                                             "estimated_value",
-                                            value ?? "0",
+                                            value ?? "",
                                         )
                                     }
                                 />
@@ -652,6 +1014,86 @@ export default function Index({ leads, filters, stages, summary }: Props) {
                             }
                         />
                     </Form.Item>
+                </Form>
+            </Modal>
+
+            <Modal
+                title="Thông tin sản phẩm khi chuyển thành cơ hội"
+                open={conversionLead !== null}
+                onCancel={() => {
+                    if (!conversionForm.processing) setConversionLead(null);
+                }}
+                okText="Tính giá trị và chuyển đổi"
+                cancelText="Hủy"
+                confirmLoading={conversionForm.processing}
+                onOk={convert}
+                maskClosable={!conversionForm.processing}
+            >
+                <Typography.Paragraph type="secondary">
+                    CRM sẽ lưu hồ sơ Khách hàng khi chuyển Lead thành Cơ hội.
+                </Typography.Paragraph>
+                {conversionLead?.requested_product ? (
+                    <Typography.Paragraph>
+                        Sản phẩm yêu cầu: <strong>{conversionLead.requested_product}</strong>
+                    </Typography.Paragraph>
+                ) : (
+                    <Typography.Paragraph type="secondary">
+                        Lead chưa có sản phẩm yêu cầu. Bạn có thể chuyển đổi và
+                        bổ sung sản phẩm sau.
+                    </Typography.Paragraph>
+                )}
+                <Form layout="vertical">
+                    <Form.Item
+                        label="Số lượng"
+                        required={Boolean(conversionLead?.requested_product)}
+                        validateStatus={conversionForm.errors.quantity ? "error" : ""}
+                        help={conversionForm.errors.quantity}
+                    >
+                        {/* Giữ giá trị nhập để máy chủ báo lỗi nếu số lượng có phần thập phân. */}
+                        <Input
+                            type="number"
+                            inputMode="numeric"
+                            style={{ width: "100%" }}
+                            min="1"
+                            max="1000000"
+                            step="1"
+                            value={conversionForm.data.quantity}
+                            onChange={(event) =>
+                                conversionForm.setData("quantity", event.target.value)
+                            }
+                        />
+                    </Form.Item>
+                    <Form.Item
+                        label="Đơn giá (VND)"
+                        required={Boolean(conversionLead?.requested_product)}
+                        validateStatus={conversionForm.errors.unit_price ? "error" : ""}
+                        help={conversionForm.errors.unit_price}
+                    >
+                        <InputNumber<string>
+                            style={{ width: "100%" }}
+                            stringMode
+                            min="0"
+                            max="9999999999999.99"
+                            step="1000"
+                            value={conversionForm.data.unit_price}
+                            onChange={(value) =>
+                                conversionForm.setData("unit_price", value ?? "")
+                            }
+                        />
+                    </Form.Item>
+                    {/* Hiển thị giá trị tạm tính. Máy chủ làm tròn và lưu kết quả khi chuyển đổi. */}
+                    <Typography.Text>
+                        Giá trị cơ hội dự kiến:{" "}
+                        <strong>
+                            {/^[1-9]\d*$/.test(conversionForm.data.quantity) &&
+                            Number(conversionForm.data.quantity) <= 1000000
+                                ? money.format(
+                                      Number(conversionForm.data.quantity) *
+                                          Number(conversionForm.data.unit_price || 0),
+                                  )
+                                : "—"}
+                        </strong>
+                    </Typography.Text>
                 </Form>
             </Modal>
         </AppLayout>
