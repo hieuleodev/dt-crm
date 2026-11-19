@@ -124,6 +124,11 @@ button:disabled {
 }
 
 .crm-shell .crm-sidebar {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+    align-self: flex-start;
     background: var(--crm-surface-panel);
     border-inline-end: 1px solid var(--crm-border);
 }

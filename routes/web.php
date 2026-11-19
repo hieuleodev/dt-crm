@@ -14,6 +14,9 @@ use App\Http\Controllers\HistoryController;
 use App\Http\Controllers\ImportController;
 use App\Http\Controllers\LeadController;
 use App\Http\Controllers\OpportunityController;
+use App\Http\Controllers\RepurchaseReminderController;
+use App\Http\Controllers\SettingController;
+use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('guest')->group(function () {
@@ -48,6 +51,12 @@ Route::middleware('auth')->group(function () {
     Route::patch('/opportunities/{opportunity}/stage', [OpportunityController::class, 'updateStage'])->whereNumber('opportunity')->name('opportunities.stage');
     Route::post('/opportunities/{opportunity}/convert-customer', [OpportunityController::class, 'convertToCustomer'])->whereNumber('opportunity')->name('opportunities.convert-customer');
 
+    // Nhắc nhở mua lại (15-30 ngày từ đợt báo giá & mua bán thành công)
+    Route::get('/repurchase-reminders', [RepurchaseReminderController::class, 'index'])->name('repurchase-reminders.index');
+    Route::post('/repurchase-reminders/{opportunity}/schedule', [RepurchaseReminderController::class, 'schedule'])->whereNumber('opportunity')->name('repurchase-reminders.schedule');
+    Route::post('/repurchase-reminders/{opportunity}/snooze', [RepurchaseReminderController::class, 'snooze'])->whereNumber('opportunity')->name('repurchase-reminders.snooze');
+    Route::post('/repurchase-reminders/{opportunity}/complete', [RepurchaseReminderController::class, 'complete'])->whereNumber('opportunity')->name('repurchase-reminders.complete');
+
     // Khách hàng
     Route::get('/customers/check-duplicates', DuplicateCheckController::class)->name('customers.check-duplicates');
     Route::resource('customers', CustomerController::class);
@@ -71,4 +80,16 @@ Route::middleware('auth')->group(function () {
     // Notes customer
     Route::get('/customers/{customer}/notes', [CustomerNoteController::class, 'index'])->name('customers.notes.index');
     Route::post('/customers/{customer}/notes', [CustomerNoteController::class, 'store'])->name('customers.notes.store');
+
+    // Settings & Profile
+    Route::get('/settings', [SettingController::class, 'index'])->name('settings.index');
+    Route::put('/settings/profile', [SettingController::class, 'updateProfile'])->name('settings.profile.update');
+    Route::put('/settings/password', [SettingController::class, 'updatePassword'])->name('settings.password.update');
+    Route::match(['put', 'post'], '/settings/company', [SettingController::class, 'updateCompany'])->name('settings.company.update');
+
+    // Users Management
+    Route::post('/users', [UserController::class, 'store'])->name('users.store');
+    Route::put('/users/{user}', [UserController::class, 'update'])->whereNumber('user')->name('users.update');
+    Route::patch('/users/{user}/status', [UserController::class, 'toggleStatus'])->whereNumber('user')->name('users.status');
+    Route::post('/users/{user}/reset-password', [UserController::class, 'resetPassword'])->whereNumber('user')->name('users.reset-password');
 });

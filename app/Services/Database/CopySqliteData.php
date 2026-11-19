@@ -10,7 +10,7 @@ class CopySqliteData
     /** @var list<string> Tables in foreign-key dependency order. */
     private const TABLES = [
         'users', 'password_reset_tokens', 'sessions', 'cache', 'cache_locks',
-        'jobs', 'job_batches', 'failed_jobs', 'leads', 'customers', 'plants',
+        'jobs', 'job_batches', 'failed_jobs', 'company_settings', 'leads', 'customers', 'plants',
         'contacts', 'tags', 'customer_tag', 'customer_owner_histories',
         'audit_logs', 'care_tasks', 'customer_notes',
     ];

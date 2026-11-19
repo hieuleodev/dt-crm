@@ -10,6 +10,7 @@ use App\Models\Task;
 use App\Models\User;
 use App\Services\Customer\DataCompleteness;
 use App\Services\Customer\SaveCustomer;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -205,6 +206,10 @@ class OpportunityController extends Controller
         $opportunity->converted_at = now();
         $opportunity->save();
 
+        if ($opportunity->stage === 'won') {
+            $this->autoScheduleRepurchaseReminder($opportunity, $user);
+        }
+
         return back()->with('success', 'Đã tạo Cơ hội kinh doanh mới.');
     }
 
@@ -213,6 +218,7 @@ class OpportunityController extends Controller
         Lead $opportunity,
     ): RedirectResponse {
         $user = $request->user();
+        $previousStage = $opportunity->stage;
         $data = $this->normalizePayload($request->validated());
 
         if (! $user->isManager() || empty($data['owner_id'])) {
@@ -222,6 +228,10 @@ class OpportunityController extends Controller
         }
 
         $opportunity->update($data);
+
+        if ($previousStage !== 'won' && $opportunity->stage === 'won') {
+            $this->autoScheduleRepurchaseReminder($opportunity, $user);
+        }
 
         return back()->with('success', 'Đã cập nhật Cơ hội kinh doanh.');
     }
@@ -274,6 +284,7 @@ class OpportunityController extends Controller
             'lost_reason.required' => 'Vui lòng nhập lý do thất bại.',
         ]);
 
+        $previousStage = $opportunity->stage;
         $nextStage = $validated['stage'];
         $probability = Lead::STAGE_PROBABILITIES[$nextStage] ?? $opportunity->probability;
         $lostReason = $nextStage === 'lost' ? trim((string) ($validated['lost_reason'] ?? '')) : null;
@@ -283,6 +294,10 @@ class OpportunityController extends Controller
             'probability' => $probability,
             'lost_reason' => $lostReason,
         ]);
+
+        if ($previousStage !== 'won' && $nextStage === 'won') {
+            $this->autoScheduleRepurchaseReminder($opportunity, $user);
+        }
 
         return back()->with('success', 'Đã chuyển giai đoạn Cơ hội.');
     }
@@ -338,7 +353,41 @@ class OpportunityController extends Controller
             'company' => $customer->name,
         ]);
 
+        Task::query()
+            ->where('lead_id', $opportunity->id)
+            ->whereNull('customer_id')
+            ->update(['customer_id' => $customer->id]);
+
         return back()->with('success', "Đã tạo hồ sơ Khách hàng {$customer->code} · {$customer->name}.");
+    }
+
+    private function autoScheduleRepurchaseReminder(Lead $opportunity, User $actor): void
+    {
+        $hasExistingTask = Task::query()
+            ->where('lead_id', $opportunity->id)
+            ->whereIn('status', [...Task::OPEN_STATUSES, 'completed'])
+            ->exists();
+
+        if ($hasExistingTask) {
+            return;
+        }
+
+        $companyName = $opportunity->customer?->name
+            ?? ($opportunity->company ?: $opportunity->title);
+
+        Task::create([
+            'title' => "Nhắc mua lại (chu kỳ 15-30 ngày): {$companyName}",
+            'description' => "Tự động tạo lịch nhắc khách hàng đặt mua lại sau 15 ngày kể từ khi chốt thành công cơ hội \"{$opportunity->title}\".",
+            'type' => 'follow_up',
+            'priority' => 'high',
+            'status' => 'pending',
+            'assignee_id' => $opportunity->owner_id ?: $actor->id,
+            'created_by' => $actor->id,
+            'customer_id' => $opportunity->customer_id,
+            'lead_id' => $opportunity->id,
+            'due_at' => CarbonImmutable::now('Asia/Ho_Chi_Minh')->addDays(15)->setTime(9, 0)->utc(),
+            'version' => 0,
+        ]);
     }
 
     /**
