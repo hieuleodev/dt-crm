@@ -1,13 +1,15 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { Tag } from "antd";
 import dayjs from "dayjs";
 import type { TaskRow } from "@/types/task";
-import { DEFAULT_TYPE_STYLE, TIMEZONE, TYPE_CONFIG } from "./types";
+import { DEFAULT_TYPE_STYLE, TIMEZONE, TYPE_CONFIG, type UpcomingEvent } from "./types";
 
 interface Props {
     currentDate: dayjs.Dayjs;
     tasks: TaskRow[];
+    events?: UpcomingEvent[];
     onSelectTask: (task: TaskRow) => void;
+    onSelectEvent: (event: UpcomingEvent) => void;
     onCreateOnDate?: (date: dayjs.Dayjs) => void;
 }
 
@@ -18,12 +20,19 @@ const HOUR_HEIGHT = 70; // 70px per hour for Day view so there's plenty of space
 export default function DayView({
     currentDate,
     tasks,
+    events = [],
     onSelectTask,
+    onSelectEvent,
     onCreateOnDate,
 }: Props) {
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     const today = dayjs().tz(TIMEZONE);
     const isToday = currentDate.isSame(today, "day");
+
+    const dateKey = currentDate.format("YYYY-MM-DD");
+    const dayEvents = useMemo(() => {
+        return events.filter((e) => e.event_date === dateKey);
+    }, [events, dateKey]);
 
     useEffect(() => {
         if (scrollContainerRef.current) {
@@ -63,10 +72,60 @@ export default function DayView({
                         </div>
                     </div>
                     <div className="crm-cal-day__header-count">
-                        {tasks.length} nhiệm vụ / lịch trình trong ngày
+                        {tasks.length} nhiệm vụ
+                        {dayEvents.length > 0 && ` · ${dayEvents.length} sự kiện & ngày lễ`}
                     </div>
                 </div>
             </div>
+
+            {/* Day Events Banner (Google Calendar style) */}
+            {dayEvents.length > 0 && (
+                <div
+                    style={{
+                        padding: "10px 16px",
+                        background: "#faf5ff",
+                        borderBottom: "1px solid var(--crm-border)",
+                    }}
+                >
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: "#475569" }}>
+                            🎉 Sự kiện trong ngày:
+                        </span>
+                        {dayEvents.map((event) => {
+                            const isCompany = event.category === "company_anniversary";
+                            return (
+                                <button
+                                    key={event.id}
+                                    type="button"
+                                    className={`crm-cal-chip ${
+                                        isCompany
+                                            ? "crm-cal-chip--event-company"
+                                            : "crm-cal-chip--event-holiday"
+                                    }`}
+                                    style={{
+                                        width: "auto",
+                                        padding: "4px 12px",
+                                        fontSize: 13,
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        gap: 6,
+                                    }}
+                                    onClick={() => onSelectEvent(event)}
+                                    title={`${event.category_label}: ${event.title}`}
+                                >
+                                    <span style={{ fontSize: 15 }}>{event.icon}</span>
+                                    <span style={{ fontWeight: 600 }}>
+                                        {isCompany ? `Kỷ niệm: ${event.title}` : event.title}
+                                    </span>
+                                    <span style={{ opacity: 0.85, fontSize: 12 }}>
+                                        ({event.subtitle})
+                                    </span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
 
             {/* Scrollable grid area */}
             <div className="crm-cal-day__body" ref={scrollContainerRef}>
@@ -98,73 +157,56 @@ export default function DayView({
                         ))}
                     </div>
 
-                    {/* Content area */}
+                    {/* Current time red horizontal line */}
+                    {isToday &&
+                        currentMinutesFromStart >= 0 &&
+                        currentMinutesFromStart <= (END_HOUR - START_HOUR + 1) * 60 && (
+                            <div
+                                className="crm-cal-day__now-line"
+                                style={{ top: currentMinutesFromStart }}
+                            />
+                        )}
+
+                    {/* Task cards positioned absolutely in the grid */}
                     <div
-                        className="crm-cal-day__content"
-                        onClick={onCreateOnDate ? (e) => {
-                            const rect = e.currentTarget.getBoundingClientRect();
-                            const clickY = e.clientY - rect.top;
-                            const totalMinutes = Math.floor(
-                                (clickY / HOUR_HEIGHT) * 60,
-                            );
-                            const clickedHour =
-                                START_HOUR + Math.floor(totalMinutes / 60);
-                            const roundedMinute =
-                                totalMinutes % 60 < 30 ? 0 : 30;
-
-                            const targetDate = currentDate
-                                .hour(Math.min(clickedHour, END_HOUR))
-                                .minute(roundedMinute);
-
-                            onCreateOnDate(targetDate);
-                        } : undefined}
+                        className="crm-cal-day__events-container"
+                        onClick={(e) => {
+                            if (onCreateOnDate && e.target === e.currentTarget) {
+                                const rect = e.currentTarget.getBoundingClientRect();
+                                const clickY = e.clientY - rect.top;
+                                const clickedMinutes = Math.floor(clickY);
+                                const clickedHour = Math.min(
+                                    END_HOUR,
+                                    Math.max(
+                                        START_HOUR,
+                                        START_HOUR + Math.floor(clickedMinutes / 60),
+                                    ),
+                                );
+                                onCreateOnDate(currentDate.hour(clickedHour).minute(0));
+                            }
+                        }}
                     >
-                        {/* Red current time line */}
-                        {isToday &&
-                            currentMinutesFromStart >= 0 &&
-                            currentMinutesFromStart <=
-                                (END_HOUR - START_HOUR + 1) * 60 && (
-                                <div
-                                    className="crm-cal-day__now-line"
-                                    style={{
-                                        top: `${currentMinutesFromStart * (HOUR_HEIGHT / 60)}px`,
-                                    }}
-                                >
-                                    <div className="crm-cal-day__now-dot" />
-                                </div>
-                            )}
-
-                        {/* Events placed vertically */}
                         {tasks.map((task) => {
                             const typeStyle =
                                 TYPE_CONFIG[task.type] ?? DEFAULT_TYPE_STYLE;
-                            const taskTime = dayjs(task.due_at).tz(TIMEZONE);
-                            const taskHour = taskTime.hour();
-                            const taskMinute = taskTime.minute();
-
-                            const minutesFromGridStart = Math.max(
-                                0,
-                                (taskHour - START_HOUR) * 60 + taskMinute,
-                            );
-
-                            const topPos =
-                                minutesFromGridStart * (HOUR_HEIGHT / 60);
+                            const due = dayjs(task.due_at).tz(TIMEZONE);
+                            const startMin =
+                                (due.hour() - START_HOUR) * 60 + due.minute();
+                            const clampedTop = Math.max(0, startMin);
                             const isCompleted = task.status === "completed";
 
                             return (
                                 <div
                                     key={task.id}
-                                    className={`crm-cal-day-event ${
+                                    className={`crm-cal-day__event ${
                                         isCompleted
-                                            ? "crm-cal-day-event--completed"
+                                            ? "crm-cal-day__event--completed"
                                             : ""
                                     } ${
-                                        task.overdue
-                                            ? "crm-cal-day-event--overdue"
-                                            : ""
+                                        task.overdue ? "crm-cal-day__event--overdue" : ""
                                     }`}
                                     style={{
-                                        top: `${topPos}px`,
+                                        top: clampedTop,
                                         borderLeftColor: typeStyle.color,
                                         background: typeStyle.bg,
                                     }}
@@ -173,76 +215,44 @@ export default function DayView({
                                         onSelectTask(task);
                                     }}
                                 >
-                                    <div className="crm-cal-day-event__header">
-                                        <div className="crm-cal-day-event__meta">
-                                            <span style={{ fontSize: 16 }}>
-                                                {typeStyle.icon}
-                                            </span>
-                                            <span className="crm-cal-day-event__time">
-                                                {taskTime.format("HH:mm")}
-                                            </span>
-                                            <Tag
-                                                style={{
-                                                    color: typeStyle.color,
-                                                    background: "#ffffff",
-                                                    borderColor: typeStyle.border,
-                                                    margin: 0,
-                                                }}
-                                            >
-                                                {typeStyle.label}
-                                            </Tag>
-                                            <Tag
-                                                color={
-                                                    task.priority === "urgent"
-                                                        ? "red"
-                                                        : task.priority === "high"
-                                                          ? "orange"
-                                                          : "default"
-                                                }
-                                                style={{ margin: 0 }}
-                                            >
-                                                {task.priority === "urgent"
-                                                    ? "Khẩn cấp"
-                                                    : task.priority === "high"
-                                                      ? "Ưu tiên cao"
-                                                      : "Bình thường"}
-                                            </Tag>
-                                        </div>
-
-                                        <Tag
-                                            color={
-                                                task.status === "completed"
-                                                    ? "green"
-                                                    : task.status === "in_progress"
-                                                      ? "blue"
-                                                      : task.status === "cancelled"
-                                                        ? "red"
-                                                        : "default"
-                                            }
+                                    <div className="crm-cal-day__event-header">
+                                        <div
+                                            className="crm-cal-day__event-time"
+                                            style={{ color: typeStyle.color }}
                                         >
-                                            {task.status === "completed"
-                                                ? "Hoàn thành"
-                                                : task.status === "in_progress"
-                                                  ? "Đang thực hiện"
-                                                  : task.status === "cancelled"
-                                                    ? "Đã hủy"
-                                                    : "Chờ xử lý"}
+                                            {due.format("HH:mm")}
+                                        </div>
+                                        <Tag
+                                            color={typeStyle.badge}
+                                            style={{ margin: 0, fontSize: 11 }}
+                                        >
+                                            {typeStyle.label}
                                         </Tag>
+                                        {task.overdue && (
+                                            <Tag color="error" style={{ margin: 0 }}>
+                                                Quá hạn
+                                            </Tag>
+                                        )}
+                                        {isCompleted && (
+                                            <Tag color="success" style={{ margin: 0 }}>
+                                                Đã xong
+                                            </Tag>
+                                        )}
                                     </div>
 
-                                    <div className="crm-cal-day-event__title">
+                                    <div className="crm-cal-day__event-title">
                                         {task.title}
                                     </div>
 
                                     {task.reference && (
-                                        <div className="crm-cal-day-event__ref">
-                                            📌 {task.reference.label}
+                                        <div className="crm-cal-day__event-ref">
+                                            {task.reference.label}
                                         </div>
                                     )}
 
-                                    {task.description && (
-                                        <div className="crm-cal-day-event__desc">
-                                            {task.description}
+                                    {task.assignee && (
+                                        <div className="crm-cal-day__event-assignee">
+                                            Phụ trách: {task.assignee}
                                         </div>
                                     )}
                                 </div>

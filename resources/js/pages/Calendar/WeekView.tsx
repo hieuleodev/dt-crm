@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useRef } from "react";
 import dayjs from "dayjs";
 import type { TaskRow } from "@/types/task";
-import { DEFAULT_TYPE_STYLE, TIMEZONE, TYPE_CONFIG } from "./types";
+import { DEFAULT_TYPE_STYLE, TIMEZONE, TYPE_CONFIG, type UpcomingEvent } from "./types";
 
 interface Props {
     currentDate: dayjs.Dayjs;
     tasks: TaskRow[];
+    events?: UpcomingEvent[];
     onSelectTask: (task: TaskRow) => void;
+    onSelectEvent: (event: UpcomingEvent) => void;
     onCreateOnDate?: (date: dayjs.Dayjs) => void;
 }
 
@@ -18,7 +20,9 @@ const HOUR_HEIGHT = 60; // 60px per hour => 1px per minute
 export default function WeekView({
     currentDate,
     tasks,
+    events = [],
     onSelectTask,
+    onSelectEvent,
     onCreateOnDate,
 }: Props) {
     const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -51,6 +55,22 @@ export default function WeekView({
         }
         return map;
     }, [tasks]);
+
+    // Group events by day (YYYY-MM-DD)
+    const eventsByDay = useMemo(() => {
+        const map = new Map<string, UpcomingEvent[]>();
+        for (const event of events) {
+            const dayKey = event.event_date;
+            const list = map.get(dayKey) ?? [];
+            list.push(event);
+            map.set(dayKey, list);
+        }
+        return map;
+    }, [events]);
+
+    const hasAnyEvents = useMemo(() => {
+        return weekDays.some((d) => (eventsByDay.get(d.format("YYYY-MM-DD"))?.length ?? 0) > 0);
+    }, [weekDays, eventsByDay]);
 
     // Current time position indicator
     const currentNow = dayjs().tz(TIMEZONE);
@@ -101,6 +121,51 @@ export default function WeekView({
                 </div>
             </div>
 
+            {/* All-Day / Events row (Google Calendar style) */}
+            {hasAnyEvents && (
+                <div className="crm-cal-allday-row">
+                    <div className="crm-cal-allday-gutter">
+                        <span>Sự kiện</span>
+                    </div>
+                    <div className="crm-cal-allday-cols">
+                        {weekDays.map((date) => {
+                            const dateKey = date.format("YYYY-MM-DD");
+                            const dayEvents = eventsByDay.get(dateKey) ?? [];
+                            return (
+                                <div key={dateKey} className="crm-cal-allday-col">
+                                    {dayEvents.map((event) => {
+                                        const isCompany = event.category === "company_anniversary";
+                                        return (
+                                            <button
+                                                key={event.id}
+                                                type="button"
+                                                className={`crm-cal-chip ${
+                                                    isCompany
+                                                        ? "crm-cal-chip--event-company"
+                                                        : "crm-cal-chip--event-holiday"
+                                                } ${event.is_today ? "crm-cal-chip--today-event" : ""}`}
+                                                onClick={() => onSelectEvent(event)}
+                                                title={`${event.category_label}: ${event.title} (${event.subtitle})`}
+                                            >
+                                                <span style={{ flexShrink: 0, fontSize: 11 }}>
+                                                    {event.icon}
+                                                </span>
+                                                <span
+                                                    className="crm-cal-chip__title"
+                                                    style={{ fontWeight: 600 }}
+                                                >
+                                                    {isCompany ? `Kỷ niệm: ${event.title}` : event.title}
+                                                </span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
             {/* Scrollable grid area */}
             <div className="crm-cal-week__body" ref={scrollContainerRef}>
                 {/* Left time labels */}
@@ -131,7 +196,17 @@ export default function WeekView({
                         ))}
                     </div>
 
-                    {/* Columns container */}
+                    {/* Current time red horizontal line */}
+                    {isCurrentWeek &&
+                        currentMinutesFromStart >= 0 &&
+                        currentMinutesFromStart <= (END_HOUR - START_HOUR + 1) * 60 && (
+                            <div
+                                className="crm-cal-week__now-line"
+                                style={{ top: currentMinutesFromStart }}
+                            />
+                        )}
+
+                    {/* Columns for the 7 days */}
                     <div className="crm-cal-week__columns">
                         {weekDays.map((date) => {
                             const dateKey = date.format("YYYY-MM-DD");
@@ -144,77 +219,45 @@ export default function WeekView({
                                     className={`crm-cal-week__col ${
                                         isToday ? "crm-cal-week__col--today" : ""
                                     }`}
-                                    onClick={onCreateOnDate ? (e) => {
-                                        // Calculate clicked hour based on click position
-                                        const rect = e.currentTarget.getBoundingClientRect();
-                                        const clickY = e.clientY - rect.top;
-                                        const totalMinutes = Math.floor(
-                                            (clickY / HOUR_HEIGHT) * 60,
-                                        );
-                                        const clickedHour =
-                                            START_HOUR + Math.floor(totalMinutes / 60);
-                                        const roundedMinute =
-                                            totalMinutes % 60 < 30 ? 0 : 30;
-
-                                        const targetDate = date
-                                            .hour(Math.min(clickedHour, END_HOUR))
-                                            .minute(roundedMinute);
-
-                                        onCreateOnDate(targetDate);
-                                    } : undefined}
+                                    onClick={(e) => {
+                                        if (onCreateOnDate && e.target === e.currentTarget) {
+                                            const rect = e.currentTarget.getBoundingClientRect();
+                                            const clickY = e.clientY - rect.top;
+                                            const clickedMinutes = Math.floor(clickY);
+                                            const clickedHour = Math.min(
+                                                END_HOUR,
+                                                Math.max(
+                                                    START_HOUR,
+                                                    START_HOUR + Math.floor(clickedMinutes / 60),
+                                                ),
+                                            );
+                                            onCreateOnDate(date.hour(clickedHour).minute(0));
+                                        }
+                                    }}
                                 >
-                                    {/* Red current-time line indicator (if today) */}
-                                    {isToday &&
-                                        currentMinutesFromStart >= 0 &&
-                                        currentMinutesFromStart <=
-                                            (END_HOUR - START_HOUR + 1) * 60 && (
-                                            <div
-                                                className="crm-cal-week__now-line"
-                                                style={{
-                                                    top: `${currentMinutesFromStart * (HOUR_HEIGHT / 60)}px`,
-                                                }}
-                                            >
-                                                <div className="crm-cal-week__now-dot" />
-                                            </div>
-                                        )}
-
-                                    {/* Event cards positioned vertically */}
                                     {dayTasks.map((task) => {
                                         const typeStyle =
                                             TYPE_CONFIG[task.type] ?? DEFAULT_TYPE_STYLE;
-                                        const taskTime = dayjs(task.due_at).tz(TIMEZONE);
-                                        const taskHour = taskTime.hour();
-                                        const taskMinute = taskTime.minute();
-
-                                        const minutesFromGridStart = Math.max(
-                                            0,
-                                            (taskHour - START_HOUR) * 60 + taskMinute,
-                                        );
-
-                                        const topPos =
-                                            minutesFromGridStart * (HOUR_HEIGHT / 60);
-                                        const cardHeight = Math.max(
-                                            42,
-                                            HOUR_HEIGHT * 0.75,
-                                        );
-                                        const isCompleted =
-                                            task.status === "completed";
+                                        const due = dayjs(task.due_at).tz(TIMEZONE);
+                                        const startMin =
+                                            (due.hour() - START_HOUR) * 60 + due.minute();
+                                        const clampedTop = Math.max(0, startMin);
+                                        const isCompleted = task.status === "completed";
 
                                         return (
                                             <div
                                                 key={task.id}
-                                                className={`crm-cal-event-card ${
+                                                className={`crm-cal-week__event ${
                                                     isCompleted
-                                                        ? "crm-cal-event-card--completed"
+                                                        ? "crm-cal-week__event--completed"
                                                         : ""
                                                 } ${
                                                     task.overdue
-                                                        ? "crm-cal-event-card--overdue"
+                                                        ? "crm-cal-week__event--overdue"
                                                         : ""
                                                 }`}
                                                 style={{
-                                                    top: `${topPos}px`,
-                                                    height: `${cardHeight}px`,
+                                                    top: clampedTop,
                                                     borderLeftColor: typeStyle.color,
                                                     background: typeStyle.bg,
                                                 }}
@@ -222,22 +265,19 @@ export default function WeekView({
                                                     e.stopPropagation();
                                                     onSelectTask(task);
                                                 }}
-                                                title={`${taskTime.format("HH:mm")} · ${task.title}`}
+                                                title={`${due.format("HH:mm")} · ${task.title}`}
                                             >
-                                                <div className="crm-cal-event-card__time">
-                                                    <span>{typeStyle.icon}</span>
-                                                    <span>{taskTime.format("HH:mm")}</span>
-                                                    {task.priority === "urgent" && (
-                                                        <span className="crm-cal-event-card__urgent-dot" />
-                                                    )}
+                                                <div
+                                                    className="crm-cal-week__event-time"
+                                                    style={{ color: typeStyle.color }}
+                                                >
+                                                    {due.format("HH:mm")}
                                                 </div>
-
-                                                <div className="crm-cal-event-card__title">
+                                                <div className="crm-cal-week__event-title">
                                                     {task.title}
                                                 </div>
-
                                                 {task.reference && (
-                                                    <div className="crm-cal-event-card__ref">
+                                                    <div className="crm-cal-week__event-ref">
                                                         {task.reference.label}
                                                     </div>
                                                 )}

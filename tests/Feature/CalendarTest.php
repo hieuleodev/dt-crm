@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\Staff\UserRole;
+use App\Models\Customer;
 use App\Models\Task;
 use App\Models\User;
 use Carbon\CarbonImmutable;
@@ -149,9 +150,34 @@ class CalendarTest extends TestCase
         $response->assertOk();
         $response->assertJsonStructure([
             'tasks',
-            'summary' => ['total', 'open', 'completed', 'overdue'],
+            'events',
+            'summary' => ['total', 'open', 'completed', 'overdue', 'events_count'],
             'filters',
         ]);
         $this->assertEquals($task->id, $response->json('tasks.0.id'));
+    }
+
+    public function test_calendar_receives_events_and_customer_anniversaries(): void
+    {
+        $sales = $this->user(UserRole::Sales);
+
+        // Khách hàng có ngày thành lập trong tháng 11
+        Customer::create([
+            'code' => 'KH99999',
+            'name' => 'Công ty Cổ phần Đại Phát',
+            'status' => 'active',
+            'owner_id' => $sales->id,
+            'founded_date' => '2015-11-20',
+        ]);
+
+        $response = $this->actingAs($sales)->get('/calendar?date=2026-11-15&view=month');
+
+        $response->assertOk();
+        $response->assertInertia(
+            fn ($page) => $page
+                ->component('Calendar/Index')
+                ->has('events')
+                ->where('summary.events_count', fn ($count) => $count > 0),
+        );
     }
 }

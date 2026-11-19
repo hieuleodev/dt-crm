@@ -1959,6 +1959,72 @@ button.crm-workbench__metric:not(:disabled):active {
     box-shadow: 0 0 0 1px #dc2626;
 }
 
+.crm-cal-chip--event-company {
+    border-left: 3px solid #7c3aed !important;
+    background: #faf5ff !important;
+    color: #6b21a8 !important;
+}
+
+.crm-cal-chip--event-company:hover {
+    background: #f3e8ff !important;
+}
+
+.crm-cal-chip--event-holiday {
+    border-left: 3px solid #ea580c !important;
+    background: #fff7ed !important;
+    color: #c2410c !important;
+}
+
+.crm-cal-chip--event-holiday:hover {
+    background: #ffedd5 !important;
+}
+
+.crm-cal-chip--today-event {
+    box-shadow: 0 0 0 1px #ef4444;
+}
+
+/* All-Day Events row in Week View */
+.crm-cal-allday-row {
+    display: flex;
+    border-bottom: 1px solid var(--crm-border);
+    background: #fafafa;
+    min-height: 32px;
+}
+
+.crm-cal-allday-gutter {
+    width: 60px;
+    flex-shrink: 0;
+    padding: 6px 8px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--crm-text-muted);
+    text-align: right;
+    border-right: 1px solid var(--crm-border);
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+.crm-cal-allday-cols {
+    display: flex;
+    flex: 1;
+    min-width: 0;
+}
+
+.crm-cal-allday-col {
+    flex: 1;
+    min-width: 0;
+    padding: 3px 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    border-right: 1px solid var(--crm-border);
+}
+
+.crm-cal-allday-col:last-child {
+    border-right: none;
+}
+
 .crm-cal-month__more {
     border: none;
     background: none;

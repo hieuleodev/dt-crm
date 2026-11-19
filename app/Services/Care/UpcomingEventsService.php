@@ -207,6 +207,123 @@ class UpcomingEventsService
         ];
     }
 
+    /**
+     * Lấy các sự kiện (kỷ niệm thành lập công ty khách hàng + ngày lễ) nằm trong khoảng ngày chỉ định.
+     * Thường dùng cho Lịch trình (Calendar) theo tháng, tuần, ngày, agenda.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function getEventsInRange(User $user, CarbonImmutable $startDate, CarbonImmutable $endDate): array
+    {
+        $start = $startDate->startOfDay();
+        $end = $endDate->endOfDay();
+        $now = CarbonImmutable::now(self::TIMEZONE)->startOfDay();
+
+        $events = [];
+
+        // 1. Ngày kỷ niệm thành lập công ty khách hàng
+        $customers = Customer::query()
+            ->visibleTo($user)
+            ->whereNotNull('founded_date')
+            ->where('status', 'active')
+            ->with('owner:id,name')
+            ->get();
+
+        $years = range($start->year, $end->year);
+
+        foreach ($customers as $customer) {
+            $founded = CarbonImmutable::parse($customer->founded_date, self::TIMEZONE);
+
+            foreach ($years as $year) {
+                $anniversary = $this->getAnnualOccurrence($founded->month, $founded->day, $year);
+
+                if ($anniversary->greaterThanOrEqualTo($start) && $anniversary->lessThanOrEqualTo($end)) {
+                    $daysLeft = (int) $now->diffInDays($anniversary, false);
+                    $anniversaryYears = $anniversary->year - $founded->year;
+                    $yearsText = $anniversaryYears > 0 ? "Kỷ niệm {$anniversaryYears} năm thành lập" : 'Ngày thành lập công ty';
+
+                    $events[] = [
+                        'id' => "company_{$customer->id}_{$anniversary->year}",
+                        'category' => 'company_anniversary',
+                        'category_label' => 'Ngày thành lập công ty',
+                        'icon' => '🏢',
+                        'title' => $customer->name,
+                        'subtitle' => $yearsText,
+                        'description' => "Ngày thành lập: {$founded->format('d/m/Y')}. Kỷ niệm {$anniversaryYears} năm.",
+                        'event_date' => $anniversary->format('Y-m-d'),
+                        'display_date' => $anniversary->format('d/m/Y'),
+                        'days_left' => $daysLeft,
+                        'is_today' => $daysLeft === 0,
+                        'badge' => $this->formatBadge($daysLeft),
+                        'customer' => [
+                            'id' => $customer->id,
+                            'code' => $customer->code,
+                            'name' => $customer->name,
+                            'href' => route('customers.show', $customer->id),
+                            'phone' => $customer->phone,
+                            'owner_name' => $customer->owner?->name,
+                        ],
+                        'suggested_task' => [
+                            'title' => "Chúc mừng {$anniversaryYears} năm ngày thành lập: {$customer->name}",
+                            'reference' => "customer:{$customer->id}",
+                            'due_at' => $anniversary->setHour(9)->setMinute(0)->utc()->toIso8601String(),
+                            'type' => 'meeting',
+                        ],
+                    ];
+                }
+            }
+        }
+
+        // 2. Ngày lễ trong khoảng thời gian
+        foreach ($years as $year) {
+            $holidays = $this->getHolidays($year);
+            foreach ($holidays as $h) {
+                $holidayDate = $this->getAnnualOccurrence($h['month'], $h['day'], $year);
+
+                if ($holidayDate->greaterThanOrEqualTo($start) && $holidayDate->lessThanOrEqualTo($end)) {
+                    $daysLeft = (int) $now->diffInDays($holidayDate, false);
+
+                    $events[] = [
+                        'id' => "holiday_{$year}_{$h['month']}_{$h['day']}",
+                        'category' => 'holiday',
+                        'category_label' => 'Ngày lễ & Kỷ niệm',
+                        'icon' => $h['icon'] ?? '🎈',
+                        'title' => $h['name'],
+                        'subtitle' => 'Ngày lễ quốc gia / sự kiện đặc biệt',
+                        'description' => $h['description'] ?? '',
+                        'event_date' => $holidayDate->format('Y-m-d'),
+                        'display_date' => $holidayDate->format('d/m/Y'),
+                        'days_left' => $daysLeft,
+                        'is_today' => $daysLeft === 0,
+                        'badge' => $this->formatBadge($daysLeft),
+                        'customer' => null,
+                        'suggested_task' => [
+                            'title' => "Gửi thông báo & lời chúc dịp {$h['name']}",
+                            'reference' => null,
+                            'due_at' => $holidayDate->setHour(9)->setMinute(0)->utc()->toIso8601String(),
+                            'type' => 'call',
+                        ],
+                    ];
+                }
+            }
+        }
+
+        // Sắp xếp theo ngày diễn ra
+        usort($events, function ($a, $b) {
+            if ($a['event_date'] === $b['event_date']) {
+                if ($a['category'] !== $b['category']) {
+                    return $a['category'] === 'company_anniversary' ? -1 : 1;
+                }
+
+                return strcmp((string) $a['title'], (string) $b['title']);
+            }
+
+            return strcmp((string) $a['event_date'], (string) $b['event_date']);
+        });
+
+        return $events;
+    }
+
     private function getAnnualOccurrence(int $month, int $day, int $year): CarbonImmutable
     {
         if ($month === 2 && $day === 29 && ! checkdate(2, 29, $year)) {
