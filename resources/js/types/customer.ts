@@ -22,6 +22,9 @@ export interface OwnerOption {
 }
 
 export interface CustomerRow {
+    founded_date: string | null;
+    successful_orders_count: number;
+    purchase_classification: Option;
     id: number;
     code: string;
     name: string;
@@ -82,6 +85,8 @@ export interface CustomerFormData {
 }
 
 export interface CustomerDetail extends CustomerFormData {
+    successful_orders_count: number;
+    purchase_classification: Option;
     id: number;
     owner: OwnerOption | null;
     creator: string | null;
@@ -130,6 +135,9 @@ export interface PlantItem {
 export interface CustomerOpportunityItem {
     id: number;
     title: string;
+    requested_product: string | null;
+    requested_quantity: string | null;
+    requested_unit_price: string | null;
     contact_name: string;
     phone: string | null;
     email: string | null;
@@ -161,6 +169,18 @@ export interface AuditItem {
     old: Record<string, unknown> | null;
     new: Record<string, unknown> | null;
     at: string | null;
+}
+
+export interface CustomerTaskHistoryItem {
+    id: number;
+    title: string;
+    type_label: string;
+    status: "completed" | "cancelled";
+    status_label: string;
+    owner: string | null;
+    opportunity: string | null;
+    result: string | null;
+    closed_at: string | null;
 }
 
 export interface DuplicateMatch {

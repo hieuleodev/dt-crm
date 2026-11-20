@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Enums\Staff\UserRole;
 use App\Models\AuditLog;
 use App\Models\Customer;
+use App\Models\Lead;
 use App\Models\Task;
 use App\Models\User;
 use App\Services\Care\SaveTask;
@@ -31,6 +32,116 @@ class CustomerTest extends TestCase
     private function customer(User $owner, array $data = []): Customer
     {
         return (new SaveCustomer)->handle(['name' => 'Công ty TNHH Thử Nghiệm', 'lifecycle_stage' => 'prospect', 'status' => 'active', 'owner_id' => $owner->id, ...$data], $owner);
+    }
+
+    public function test_customer_purchase_tags_follow_successful_opportunities_without_counting_tasks_or_repeated_updates(): void
+    {
+        $sale = $this->user(UserRole::Sales);
+        $customer = $this->customer($sale, ['founded_date' => '2015-06-12']);
+        $first = new Lead(['owner_id' => $sale->id, 'customer_id' => $customer->id, 'title' => 'Đơn đầu tiên', 'contact_name' => 'An', 'stage' => 'proposal']);
+        $first->kind = 'opportunity';
+        $first->save();
+        $second = $first->replicate();
+        $second->title = 'Đơn thứ hai';
+        $second->save();
+        $lead = $first->replicate();
+        $lead->kind = 'lead';
+        $lead->stage = 'won';
+        $lead->save();
+
+        $this->actingAs($sale)->get('/customers')->assertOk()->assertInertia(fn ($page) => $page
+            ->where('customers.data.0.founded_date', '2015-06-12')
+            ->where('customers.data.0.successful_orders_count', 0)
+            ->where('customers.data.0.purchase_classification.label', 'Chưa phát sinh đơn'));
+
+        $this->patch(route('opportunities.stage', $first), ['stage' => 'won'])->assertRedirect()->assertSessionHasNoErrors();
+        $this->get(route('customers.show', $customer))->assertOk()->assertInertia(fn ($page) => $page
+            ->where('customer.founded_date', '2015-06-12')
+            ->where('customer.successful_orders_count', 1)
+            ->where('customer.purchase_classification.label', 'Khách hàng tiềm năng'));
+
+        $this->patch(route('opportunities.stage', $first), ['stage' => 'won'])->assertRedirect();
+        $this->patch(route('opportunities.stage', $second), ['stage' => 'won'])->assertRedirect()->assertSessionHasNoErrors();
+        $this->get('/customers')->assertOk()->assertInertia(fn ($page) => $page
+            ->where('customers.data.0.successful_orders_count', 2)
+            ->where('customers.data.0.purchase_classification.label', 'Khách hàng cũ'));
+
+        $this->patch(route('opportunities.stage', $second), ['stage' => 'proposal'])->assertRedirect();
+        $this->get(route('customers.show', $customer))->assertOk()->assertInertia(fn ($page) => $page
+            ->where('customer.successful_orders_count', 1)
+            ->where('customer.purchase_classification.value', 'potential'));
+    }
+
+    public function test_customer_transaction_history_includes_closed_direct_and_opportunity_tasks_only_with_existing_visibility(): void
+    {
+        $sale = $this->user(UserRole::Sales);
+        $other = $this->user(UserRole::Sales);
+        $manager = $this->user(UserRole::Manager);
+        $customer = $this->customer($sale);
+        $opportunity = new Lead(['owner_id' => $sale->id, 'customer_id' => $customer->id, 'title' => 'Đơn găng tay', 'contact_name' => 'An', 'stage' => 'won']);
+        $opportunity->kind = 'opportunity';
+        $opportunity->save();
+        $base = ['title' => 'Gọi xác nhận', 'type' => 'call', 'priority' => 'normal', 'created_by' => $manager->id, 'assignee_id' => $sale->id, 'due_at' => now(), 'status' => 'completed', 'completed_at' => now(), 'result' => 'Đã xác nhận'];
+        $direct = Task::create([...$base, 'customer_id' => $customer->id]);
+        $linked = Task::create([...$base, 'lead_id' => $opportunity->id, 'status' => 'cancelled', 'completed_at' => null, 'result' => 'Khách hẹn lại']);
+        Task::create([...$base, 'customer_id' => $customer->id, 'status' => 'pending', 'completed_at' => null]);
+        Task::create($base);
+        Task::create([...$base, 'customer_id' => $customer->id, 'assignee_id' => $other->id]);
+
+        $this->actingAs($sale)->get(route('customers.show', $customer))->assertOk()->assertInertia(fn ($page) => $page
+            ->where('taskHistory.total', 2)
+            ->where('taskHistory.data.0.id', $linked->id)
+            ->where('taskHistory.data.0.opportunity', 'Đơn găng tay')
+            ->where('taskHistory.data.0.status', 'cancelled')
+            ->where('taskHistory.data.0.result', 'Khách hẹn lại')
+            ->where('taskHistory.data.1.id', $direct->id)
+            ->where('customer.successful_orders_count', 1));
+        $this->actingAs($manager)->get(route('customers.show', $customer))->assertOk()->assertInertia(fn ($page) => $page
+            ->where('taskHistory.total', 3));
+        $this->actingAs($other)->get(route('customers.show', $customer))->assertForbidden();
+    }
+
+    public function test_customer_task_history_has_a_second_page_and_handles_missing_founded_date(): void
+    {
+        $sale = $this->user(UserRole::Sales);
+        $customer = $this->customer($sale);
+        foreach (range(1, 16) as $number) {
+            Task::create(['title' => "Chăm sóc {$number}", 'type' => 'call', 'priority' => 'normal', 'created_by' => $sale->id, 'assignee_id' => $sale->id, 'customer_id' => $customer->id, 'due_at' => now(), 'status' => 'completed', 'completed_at' => now()]);
+        }
+
+        $this->actingAs($sale)->get(route('customers.show', [$customer, 'task_history_page' => 2]))->assertOk()->assertInertia(fn ($page) => $page
+            ->where('customer.founded_date', null)
+            ->where('customer.successful_orders_count', 0)
+            ->where('taskHistory.current_page', 2)
+            ->where('taskHistory.total', 16)
+            ->has('taskHistory.data', 1)
+            ->where('taskHistory.data.0.title', 'Chăm sóc 1'));
+    }
+
+    public function test_purchase_classification_filter_returns_each_group_without_exposing_other_sales_customers(): void
+    {
+        $sale = $this->user(UserRole::Sales);
+        $noOrders = $this->customer($sale, ['name' => 'Chưa mua']);
+        $potential = $this->customer($sale, ['name' => 'Mua một lần']);
+        $returning = $this->customer($sale, ['name' => 'Mua nhiều lần']);
+        $other = $this->customer($this->user(UserRole::Sales), ['name' => 'Khách nhân viên khác']);
+        foreach ([$potential, $returning, $returning, $other] as $customer) {
+            $opportunity = new Lead(['owner_id' => $customer->owner_id, 'customer_id' => $customer->id, 'title' => 'Đơn thành công', 'contact_name' => 'An', 'stage' => 'won']);
+            $opportunity->kind = 'opportunity';
+            $opportunity->save();
+        }
+
+        $this->actingAs($sale)->get('/customers?purchase_classification=no_orders')->assertOk()->assertInertia(fn ($page) => $page
+            ->where('customers.total', 1)->where('customers.data.0.id', $noOrders->id));
+        $this->get('/customers?purchase_classification=potential')->assertOk()->assertInertia(fn ($page) => $page
+            ->where('filters.purchase_classification', 'potential')
+            ->where('customers.total', 1)->where('customers.data.0.id', $potential->id));
+        $this->get('/customers?purchase_classification=returning')->assertOk()->assertInertia(fn ($page) => $page
+            ->where('customers.total', 1)->where('customers.data.0.id', $returning->id));
+        $this->get('/customers?purchase_classification=potential&q=KhongTonTai')->assertOk()->assertInertia(fn ($page) => $page
+            ->where('customers.total', 0));
+        $this->get('/customers')->assertOk()->assertInertia(fn ($page) => $page->where('customers.total', 3));
+        $this->get('/customers?purchase_classification=invalid')->assertRedirect()->assertSessionHasErrors('purchase_classification');
     }
 
     public function test_guest_is_redirected_to_login(): void

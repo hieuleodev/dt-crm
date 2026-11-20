@@ -33,13 +33,14 @@ import {
     labelOf,
     stageColor,
 } from "@/lib/format";
-import type { PageProps } from "@/types";
+import type { PageProps, Paginated } from "@/types";
 import type {
     AuditItem,
     ContactItem,
     CustomerDetail,
     CustomerOpportunityItem,
     CustomerOptions,
+    CustomerTaskHistoryItem,
     OwnerHistoryItem,
     OwnerOption,
     PlantItem,
@@ -53,6 +54,7 @@ interface Props extends PageProps {
     opportunities: CustomerOpportunityItem[];
     ownerHistory: OwnerHistoryItem[];
     auditLogs: AuditItem[];
+    taskHistory: Paginated<CustomerTaskHistoryItem>;
     options: CustomerOptions;
     owners: OwnerOption[];
     can: { update: boolean; delete: boolean; reassign: boolean };
@@ -95,6 +97,7 @@ const FIELD_LABELS: Record<string, string> = {
     lost_reason: "Lý do thất bại",
     contact_name: "Người liên hệ",
     result: "Kết quả",
+    founded_date: "Ngày thành lập",
 };
 const SUBJECTS: Record<string, string> = {
     Customer: "Khách hàng",
@@ -134,12 +137,32 @@ export default function Show() {
         opportunities = [],
         ownerHistory,
         auditLogs,
+        taskHistory,
         options,
         owners,
         can,
         auth,
     } = usePage<Props>().props;
+    const canViewOpportunities = auth.user !== null;
+    const canUseTasks = auth.user !== null;
     const customerDetails: DescriptionsProps["items"] = [
+        {
+            key: "founded_date",
+            label: "Ngày thành lập",
+            children: c.founded_date ? formatDate(c.founded_date) : "—",
+        },
+        {
+            key: "purchase_classification",
+            label: "Phân loại mua hàng",
+            children: (
+                <>
+                    <Tag color={c.purchase_classification.value === "returning" ? "green" : c.purchase_classification.value === "potential" ? "blue" : undefined}>
+                        {c.purchase_classification.label}
+                    </Tag>
+                    <span>{c.successful_orders_count} đơn thành công</span>
+                </>
+            ),
+        },
         {
             key: "name",
             label: "Tên khách hàng",
@@ -496,6 +519,26 @@ export default function Show() {
         .filter((o) => o.stage === "won")
         .reduce((sum, o) => sum + Number(o.estimated_value), 0);
 
+    const taskHistoryColumns: TableProps<CustomerTaskHistoryItem>["columns"] = [
+        { title: "Thời gian kết thúc", dataIndex: "closed_at", render: formatDateTime, width: 170 },
+        {
+            title: "Nhiệm vụ / Cơ hội",
+            render: (_, task) => (
+                <div>
+                    <strong>{task.title}</strong>
+                    <div className="crm-muted">{task.type_label}</div>
+                    {task.opportunity && <div className="crm-muted">Cơ hội: {task.opportunity}</div>}
+                </div>
+            ),
+        },
+        {
+            title: "Trạng thái",
+            render: (_, task) => <Tag color={task.status === "completed" ? "green" : "red"}>{task.status_label}</Tag>,
+        },
+        { title: "Phụ trách", dataIndex: "owner", render: (value) => value || "—" },
+        { title: "Kết quả", dataIndex: "result", render: (value) => value || "—" },
+    ];
+
     const opportunityColumns: TableProps<CustomerOpportunityItem>["columns"] = [
         {
             title: "Thương vụ / Liên hệ",
@@ -505,6 +548,16 @@ export default function Show() {
                     <div>
                         <strong>{opp.title}</strong>
                     </div>
+                    {/* Dùng thông tin báo giá đã lưu trên Cơ hội để hiển thị trong hồ sơ khách hàng. */}
+                    {opp.requested_product && (
+                        <div className="crm-muted">
+                            Sản phẩm: {opp.requested_product}
+                            {opp.requested_quantity &&
+                            opp.requested_unit_price
+                                ? ` · ${formatNumber(Number(opp.requested_quantity))} × ${formatVnd(Number(opp.requested_unit_price))}`
+                                : ""}
+                        </div>
+                    )}
                     <div className="crm-muted">
                         {opp.contact_name}
                         {opp.phone ? ` · ${opp.phone}` : ""}
@@ -553,7 +606,7 @@ export default function Show() {
             title: "Thao tác",
             key: "actions",
             width: 150,
-            render: (_, opp) => (
+            render: (_, opp) => canUseTasks && (
                 <Button
                     size="small"
                     onClick={() => router.visit(`/tasks?lead_id=${opp.id}`)}
@@ -572,22 +625,26 @@ export default function Show() {
                 title={c.name}
                 extra={
                     <>
-                        <Button
-                            onClick={() =>
-                                router.visit(
-                                    `/opportunities?customer_id=${c.id}`,
-                                )
-                            }
-                        >
-                            Cơ hội ({opportunities.length})
-                        </Button>
-                        <Button
-                            onClick={() =>
-                                router.visit(`/tasks?customer_id=${c.id}`)
-                            }
-                        >
-                            Nhiệm vụ
-                        </Button>
+                        {canViewOpportunities && (
+                            <Button
+                                onClick={() =>
+                                    router.visit(
+                                        `/opportunities?customer_id=${c.id}`,
+                                    )
+                                }
+                            >
+                                Cơ hội ({opportunities.length})
+                            </Button>
+                        )}
+                        {canUseTasks && (
+                            <Button
+                                onClick={() =>
+                                    router.visit(`/tasks?customer_id=${c.id}`)
+                                }
+                            >
+                                Nhiệm vụ
+                            </Button>
+                        )}
 
                         {can.reassign && (
                             <Button
@@ -694,7 +751,7 @@ export default function Show() {
                                 </>
                             ),
                         },
-                        {
+                        ...(canViewOpportunities ? [{
                             key: "opportunities",
                             label: `Cơ hội kinh doanh (${opportunities.length})`,
                             children: (
@@ -733,6 +790,38 @@ export default function Show() {
                                                 <Empty description="Chưa có cơ hội kinh doanh nào gắn với khách hàng này." />
                                             ),
                                         }}
+                                    />
+                                </>
+                            ),
+                        }] : []),
+                        {
+                            key: "transactions",
+                            label: "Lịch sử giao dịch",
+                            children: (
+                                <>
+                                    <Typography.Title level={5}>Cơ hội thành công ({c.successful_orders_count})</Typography.Title>
+                                    <Table<CustomerOpportunityItem>
+                                        rowKey="id"
+                                        columns={opportunityColumns}
+                                        dataSource={opportunities.filter((opportunity) => opportunity.stage === "won")}
+                                        pagination={{ pageSize: 10, showSizeChanger: false }}
+                                        scroll={{ x: 780 }}
+                                        locale={{ emptyText: "Chưa có cơ hội thành công gắn với khách hàng này." }}
+                                    />
+                                    <Typography.Title level={5}>Lịch sử nhiệm vụ ({taskHistory.total})</Typography.Title>
+                                    <Table<CustomerTaskHistoryItem>
+                                        rowKey="id"
+                                        columns={taskHistoryColumns}
+                                        dataSource={taskHistory.data}
+                                        pagination={{
+                                            current: taskHistory.current_page,
+                                            pageSize: taskHistory.per_page,
+                                            total: taskHistory.total,
+                                            showSizeChanger: false,
+                                            onChange: (page) => router.get(`/customers/${c.id}`, { task_history_page: page }, { preserveState: true, preserveScroll: true }),
+                                        }}
+                                        scroll={{ x: 780 }}
+                                        locale={{ emptyText: "Chưa có nhiệm vụ hoàn thành hoặc đã hủy." }}
                                     />
                                 </>
                             ),

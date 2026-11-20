@@ -20,6 +20,7 @@ use App\Services\Customer\SaveCustomer;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -30,12 +31,16 @@ class CustomerController extends Controller
     public function index(Request $request): Response
     {
         $user = $request->user();
-        $filters = $request->only(['q', 'status', 'tier', 'industry', 'company_type', 'lifecycle_stage', 'owner_id', 'completeness', 'sort', 'direction']);
+        $request->validate(['purchase_classification' => ['nullable', Rule::in(['potential', 'returning', 'no_orders'])]]);
+        $filters = $request->only(['q', 'status', 'tier', 'industry', 'company_type', 'lifecycle_stage', 'owner_id', 'completeness', 'sort', 'direction', 'purchase_classification']);
         $visible = Customer::query()->visibleTo($user);
 
         $query = (clone $visible)
             ->with(['owner:id,name', 'tags:id,name'])
-            ->withCount(['contacts' => fn ($q) => $q->whereNull('left_at')]);
+            ->withCount([
+                'contacts' => fn ($q) => $q->whereNull('left_at'),
+                'opportunities as successful_orders_count' => fn ($q) => $q->where('stage', 'won'),
+            ]);
 
         if ($term = trim((string) ($filters['q'] ?? ''))) {
             $digits = preg_replace('/\D/', '', $term);
@@ -69,6 +74,15 @@ class CustomerController extends Controller
             $query->where('data_completeness', '<', 60);
         }
 
+        if (filled($filters['purchase_classification'] ?? null)) {
+            [$operator, $count] = match ($filters['purchase_classification']) {
+                'potential' => ['=', 1],
+                'returning' => ['>=', 2],
+                'no_orders' => ['=', 0],
+            };
+            $query->whereHas('opportunities', fn ($q) => $q->where('stage', 'won'), $operator, $count);
+        }
+
         $sort = in_array($filters['sort'] ?? null, self::SORTABLE, true) ? $filters['sort'] : 'created_at';
         $direction = ($filters['direction'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
 
@@ -93,6 +107,9 @@ class CustomerController extends Controller
                 'email' => $c->email,
                 'phone' => $c->phone,
                 'address' => $c->address,
+                'founded_date' => $c->founded_date?->toDateString(),
+                'successful_orders_count' => $c->successful_orders_count,
+                'purchase_classification' => $this->purchaseClassification($c->successful_orders_count),
             ]);
 
         return Inertia::render('Customers/Index', [
@@ -135,6 +152,7 @@ class CustomerController extends Controller
             'ownerHistories.fromUser:id,name', 'ownerHistories.toUser:id,name', 'ownerHistories.changedBy:id,name']);
         $completeness = DataCompleteness::evaluate($customer);
         $user = $request->user();
+        $customer->loadCount(['opportunities as successful_orders_count' => fn ($q) => $q->where('stage', 'won')]);
 
         return Inertia::render('Customers/Show', [
             'customer' => [
@@ -148,6 +166,8 @@ class CustomerController extends Controller
                 'last_contacted_at' => $customer->last_contacted_at?->toIso8601String(),
                 'data_completeness' => $completeness['score'],
                 'missing' => $completeness['missing'],
+                'successful_orders_count' => $customer->successful_orders_count,
+                'purchase_classification' => $this->purchaseClassification($customer->successful_orders_count),
             ],
             'contacts' => $customer->contacts->sortBy([['left_at', 'asc'], ['is_primary', 'desc'], ['full_name', 'asc']])->values()
                 ->map(fn ($c) => [
@@ -159,6 +179,7 @@ class CustomerController extends Controller
                     'plant' => $c->plant?->name,
                 ]),
             'plants' => $customer->plants->map(fn ($p) => $p->only('id', 'name', 'address', 'province', 'industrial_zone', 'employee_count', 'hazard_areas', 'receiving_hours', 'delivery_notes')),
+            // Hồ sơ khách hàng hiển thị sản phẩm, số lượng và đơn giá đã ghi trên từng Cơ hội.
             'opportunities' => $customer->opportunities()
                 ->with('owner:id,name')
                 ->withCount('tasks')
@@ -169,6 +190,9 @@ class CustomerController extends Controller
                 ->map(fn (Lead $opp) => [
                     'id' => $opp->id,
                     'title' => $opp->title,
+                    'requested_product' => $opp->requested_product,
+                    'requested_quantity' => $opp->requested_quantity,
+                    'requested_unit_price' => $opp->requested_unit_price,
                     'contact_name' => $opp->contact_name,
                     'phone' => $opp->phone,
                     'email' => $opp->email,
@@ -190,6 +214,29 @@ class CustomerController extends Controller
                 'at' => $h->created_at?->toIso8601String(),
             ]),
             'auditLogs' => $this->auditTrail($customer),
+            'taskHistory' => Task::query()
+                ->visibleTo($user)
+                ->where(function ($query) use ($customer) {
+                    $query->where('customer_id', $customer->id)
+                        ->orWhereIn('lead_id', Lead::query()->where('customer_id', $customer->id)->select('id'));
+                })
+                ->whereIn('status', ['completed', 'cancelled'])
+                ->with(['assignee:id,name', 'lead:id,title'])
+                ->orderByRaw('COALESCE(completed_at, updated_at) DESC')
+                ->orderByDesc('id')
+                ->paginate(15, ['*'], 'task_history_page')
+                ->withQueryString()
+                ->through(fn (Task $task) => [
+                    'id' => $task->id,
+                    'title' => $task->title,
+                    'type_label' => Task::TYPES[$task->type] ?? $task->type,
+                    'status' => $task->status,
+                    'status_label' => Task::STATUSES[$task->status],
+                    'owner' => $task->assignee?->name,
+                    'opportunity' => $task->lead?->title,
+                    'result' => $task->result,
+                    'closed_at' => ($task->completed_at ?? $task->updated_at)?->toIso8601String(),
+                ]),
             'options' => CustomerOptions::all(),
             'owners' => $user->isManager() ? $this->owners() : [],
             'can' => [
@@ -239,6 +286,15 @@ class CustomerController extends Controller
         $reassign->handle($customer, $data['owner_id'] ?? null, $request->user(), $data['reason'] ?? null);
 
         return back()->with('success', 'Đã chuyển người phụ trách.');
+    }
+
+    private function purchaseClassification(int $successfulOrders): array
+    {
+        return match (true) {
+            $successfulOrders >= 2 => ['value' => 'returning', 'label' => 'Khách hàng cũ'],
+            $successfulOrders === 1 => ['value' => 'potential', 'label' => 'Khách hàng tiềm năng'],
+            default => ['value' => 'no_orders', 'label' => 'Chưa phát sinh đơn'],
+        };
     }
 
     private function formData(Customer $c): array
