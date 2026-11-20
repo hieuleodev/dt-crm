@@ -253,22 +253,17 @@ export default function Index() {
                             total: records.total,
                             showSizeChanger: false,
                             showTotal: (total) => {
-                                const recordCount = `${total.toLocaleString("vi-VN")} bản ghi`;
-
                                 if (filters.type !== "task") {
-                                    return recordCount;
+                                    return `${total.toLocaleString("vi-VN")} bản ghi`;
                                 }
 
                                 return (
-                                    <>
-                                        {recordCount}
-                                        <span className="crm-history__pagination-summary">
-                                            <SolutionOutlined />
-                                            {`Nhiệm vụ hoàn thành: ${summary.breakdown.task.successful.toLocaleString("vi-VN")}`}
-                                            {" · "}
-                                            {`Đã hủy: ${summary.breakdown.task.failed.toLocaleString("vi-VN")}`}
-                                        </span>
-                                    </>
+                                    <span className="crm-history__pagination-summary">
+                                        <SolutionOutlined />
+                                        {`Nhiệm vụ hoàn thành: ${summary.breakdown.task.successful.toLocaleString("vi-VN")}`}
+                                        {" · "}
+                                        {`Đã hủy: ${summary.breakdown.task.failed.toLocaleString("vi-VN")}`}
+                                    </span>
                                 );
                             },
                         }}
