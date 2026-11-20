@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Http\Controllers\RepurchaseReminderController;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -44,6 +45,7 @@ class HandleInertiaRequests extends Middleware
                     'id' => $user->id,
                     'name' => $user->name,
                     'email' => $user->email,
+                    'phone' => $user->phone,
                     'role' => $user->role->value,
                     'roleLabel' => $user->role->label(),
                 ] : null,
@@ -53,6 +55,9 @@ class HandleInertiaRequests extends Middleware
                 'error' => fn () => $request->session()->get('error'),
                 'importResult' => fn () => $request->session()->get('import_result'),
             ],
+            'repurchaseNotifications' => fn () => $user
+                ? RepurchaseReminderController::notificationSummary($user)
+                : null,
         ];
     }
 }

@@ -110,6 +110,7 @@ interface Props extends PageProps {
         total: number;
     };
     board: Record<string, Opportunity[]>;
+    hiddenBoardCounts?: Record<string, number>;
     stageHistory: Record<number, StageHistoryEntry[]>;
     filters: Filters;
     stages: Record<string, string>;
@@ -156,6 +157,7 @@ const money = new Intl.NumberFormat("vi-VN", {
 export default function Index({
     opportunities,
     board = {},
+    hiddenBoardCounts = {},
     stageHistory = {},
     filters,
     stages,
@@ -858,7 +860,13 @@ export default function Index({
                             <p className="leads-hint" role="status">
                                 Mẹo: Kéo - thả thẻ Cơ hội giữa các cột để chuyển
                                 giai đoạn nhanh, hoặc bấm "+ Việc" để giao nhiệm
-                                vụ ngay tại chỗ.
+                                vụ ngay tại chỗ. Các thẻ Thành công / Thất bại
+                                sau 24 giờ sẽ tự động ẩn khỏi bảng Kanban và lưu
+                                tại mục{" "}
+                                <Link href="/history?type=opportunity">
+                                    Lịch sử
+                                </Link>
+                                .
                             </p>
 
                             <div className="crm-kanban">
@@ -871,6 +879,11 @@ export default function Index({
                                             value: "0",
                                         };
                                         const items = board[stageKey] ?? [];
+                                        const hiddenCount =
+                                            hiddenBoardCounts[stageKey] ?? 0;
+                                        const isClosedStage =
+                                            stageKey === "won" ||
+                                            stageKey === "lost";
                                         const isDragOver =
                                             dragOverStage === stageKey;
 
@@ -913,7 +926,11 @@ export default function Index({
                                                     <div className="crm-kanban__title-row">
                                                         <span className="crm-kanban__title">
                                                             {stageLabel} (
-                                                            {metric.count})
+                                                            {items.length}
+                                                            {hiddenCount > 0
+                                                                ? `/${metric.count}`
+                                                                : ""}
+                                                            )
                                                         </span>
                                                         <Tag>
                                                             {stageProbabilities[
@@ -929,6 +946,25 @@ export default function Index({
                                                             ),
                                                         )}
                                                     </div>
+                                                    {isClosedStage &&
+                                                        hiddenCount > 0 && (
+                                                            <Typography.Text
+                                                                type="secondary"
+                                                                style={{
+                                                                    fontSize: 12,
+                                                                    display:
+                                                                        "block",
+                                                                    marginTop: 4,
+                                                                }}
+                                                            >
+                                                                Đã ẩn{" "}
+                                                                {hiddenCount}{" "}
+                                                                cơ hội quá 24h ·{" "}
+                                                                <Link href="/history?type=opportunity">
+                                                                    Xem Lịch sử
+                                                                </Link>
+                                                            </Typography.Text>
+                                                        )}
                                                 </div>
 
                                                 <div className="crm-kanban__cards">
@@ -937,7 +973,12 @@ export default function Index({
                                                             image={
                                                                 Empty.PRESENTED_IMAGE_SIMPLE
                                                             }
-                                                            description="Trống"
+                                                            description={
+                                                                isClosedStage &&
+                                                                hiddenCount > 0
+                                                                    ? `Chưa có cơ hội mới trong 24h qua (${hiddenCount} cơ hội cũ đã lưu ở Lịch sử)`
+                                                                    : "Trống"
+                                                            }
                                                         />
                                                     ) : (
                                                         items.map((opp) => {

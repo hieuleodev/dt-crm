@@ -304,4 +304,86 @@ class OpportunityTest extends TestCase
             'id' => $opp->id,
         ]);
     }
+
+    public function test_closed_opportunities_are_hidden_from_kanban_board_after_24_hours_but_remain_in_summary_and_history(): void
+    {
+        $this->withoutVite();
+        $this->travelTo(Carbon::parse('2026-11-20 08:00:00', 'UTC'));
+
+        $sales = User::factory()->create(['role' => UserRole::Sales, 'is_active' => true]);
+
+        $wonOpp = new Lead([
+            'title' => 'Đơn hàng mũ bảo hộ thành công',
+            'contact_name' => 'Nguyễn Thành Công',
+            'company' => 'Công ty Xây dựng A',
+            'stage' => 'won',
+            'estimated_value' => '100000000',
+            'probability' => 100,
+        ]);
+        $wonOpp->owner_id = $sales->id;
+        $wonOpp->kind = 'opportunity';
+        $wonOpp->save();
+
+        $lostOpp = new Lead([
+            'title' => 'Đơn hàng áo phản quang thất bại',
+            'contact_name' => 'Lê Thất Bại',
+            'company' => 'Công ty Xây dựng B',
+            'stage' => 'lost',
+            'estimated_value' => '50000000',
+            'probability' => 0,
+            'lost_reason' => 'Giá cao hơn đối thủ',
+        ]);
+        $lostOpp->owner_id = $sales->id;
+        $lostOpp->kind = 'opportunity';
+        $lostOpp->save();
+
+        $openOpp = new Lead([
+            'title' => 'Đơn hàng đang đàm phán',
+            'contact_name' => 'Trần Đàm Phán',
+            'company' => 'Công ty Xây dựng C',
+            'stage' => 'negotiation',
+            'estimated_value' => '200000000',
+            'probability' => 70,
+        ]);
+        $openOpp->owner_id = $sales->id;
+        $openOpp->kind = 'opportunity';
+        $openOpp->save();
+
+        // Within 24 hours (23 hours elapsed): won and lost cards are still visible on Kanban board
+        $this->travelTo(Carbon::parse('2026-11-21 07:00:00', 'UTC'));
+
+        $this->actingAs($sales)
+            ->get(route('opportunities.index'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->has('board.won', 1)
+                ->has('board.lost', 1)
+                ->has('board.negotiation', 1)
+                ->where('hiddenBoardCounts.won', 0)
+                ->where('hiddenBoardCounts.lost', 0));
+
+        // After 24 hours (25 hours elapsed): won and lost cards disappear from Kanban board, but open negotiation remains
+        $this->travelTo(Carbon::parse('2026-11-21 09:00:00', 'UTC'));
+
+        $this->actingAs($sales)
+            ->get(route('opportunities.index'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->has('board.won', 0)
+                ->has('board.lost', 0)
+                ->has('board.negotiation', 1)
+                ->where('hiddenBoardCounts.won', 1)
+                ->where('hiddenBoardCounts.lost', 1)
+                ->where('summary.won_value', '100000000')
+                ->where('summary.by_stage.won.count', 1)
+                ->where('summary.by_stage.lost.count', 1)
+                ->has('opportunities.data', 3));
+
+        // History tab still retains both closed opportunities
+        $this->actingAs($sales)
+            ->get(route('history.index', ['type' => 'opportunity']))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->has('records.data', 2));
+    }
 }
