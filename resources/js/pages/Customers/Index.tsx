@@ -6,6 +6,7 @@ import { PlusOutlined } from "@ant-design/icons";
 
 import AppLayout from "@/layouts/AppLayout";
 import PageHeader from "@/components/common/PageHeader";
+import { formatDate } from "@/lib/format";
 
 import type { PageProps, Paginated } from "@/types";
 import type { CustomerOptions, CustomerRow } from "@/types/customer";
@@ -15,6 +16,7 @@ interface Filters {
     status?: string;
     industry?: string;
     company_type?: string;
+    purchase_classification?: string;
     sort?: string;
     direction?: "asc" | "desc";
 }
@@ -43,6 +45,7 @@ export default function Index() {
             status: filters.status,
             industry: filters.industry,
             company_type: filters.company_type,
+            purchase_classification: filters.purchase_classification,
             sort: filters.sort === "name" ? "name" : undefined,
             direction: filters.sort === "name" ? filters.direction : undefined,
             page: 1,
@@ -121,6 +124,26 @@ export default function Index() {
             width: 160,
             render: (value: string | null) =>
                 value ? <a href={`tel:${value}`}>{value}</a> : "—",
+        },
+        {
+            title: "Ngày thành lập",
+            dataIndex: "founded_date",
+            key: "founded_date",
+            width: 150,
+            render: (value: string | null) => value ? formatDate(value) : "—",
+        },
+        {
+            title: "Phân loại mua hàng",
+            key: "purchase_classification",
+            width: 210,
+            render: (_, customer) => (
+                <div>
+                    <Tag color={customer.purchase_classification.value === "returning" ? "green" : customer.purchase_classification.value === "potential" ? "blue" : undefined}>
+                        {customer.purchase_classification.label}
+                    </Tag>
+                    <div className="crm-muted">{customer.successful_orders_count} đơn thành công</div>
+                </div>
+            ),
         },
         {
             title: "Trạng thái",
@@ -203,6 +226,20 @@ export default function Index() {
 
                     <div className="crm-accounts__filters">
                         <Select
+                            aria-label="Phân loại khách hàng"
+                            className="crm-accounts__classification"
+                            placeholder="Tất cả phân loại khách hàng"
+                            allowClear
+                            disabled={loading}
+                            value={filters.purchase_classification}
+                            options={[
+                                { value: "potential", label: "Khách hàng tiềm năng" },
+                                { value: "returning", label: "Khách hàng cũ" },
+                                { value: "no_orders", label: "Chưa phát sinh đơn" },
+                            ]}
+                            onChange={(value) => apply({ purchase_classification: value, q: q.trim() })}
+                        />
+                        <Select
                             aria-label="Lọc ngành nghề"
                             placeholder="Tất cả ngành nghề"
                             allowClear
@@ -247,7 +284,7 @@ export default function Index() {
                         columns={columns}
                         dataSource={customers.data}
                         loading={loading}
-                        scroll={{ x: 1140 }}
+                        scroll={{ x: 1500 }}
                         rowClassName="crm-accounts__row"
                         onRow={(customer) => ({
                             onClick: (event) => {

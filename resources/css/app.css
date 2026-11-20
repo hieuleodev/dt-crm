@@ -591,6 +591,11 @@ button:disabled {
     width: 190px;
 }
 
+.crm-accounts__filters .crm-accounts__classification {
+    width: 245px;
+    min-width: 220px;
+}
+
 .crm-accounts__table {
     min-width: 0;
 }

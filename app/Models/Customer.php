@@ -50,6 +50,7 @@ class Customer extends Model
             'vendor_registered' => 'boolean',
             'marketing_consent' => 'boolean',
             'vendor_registered_at' => 'date',
+            'founded_date' => 'date',
             'lifecycle_stage_at' => 'datetime',
             'consent_at' => 'datetime',
             'last_contacted_at' => 'datetime',
