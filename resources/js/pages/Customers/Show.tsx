@@ -247,6 +247,7 @@ export default function Show() {
         field("Số điện thoại", c.phone || "—"),
         field("Loại khách", labelOf(options.companyTypes, c.company_type)),
         field("Ngành nghề", labelOf(options.industries, c.industry)),
+        field("Ngày thành lập", c.founded_date ? formatDate(c.founded_date) : "—"),
         field("Trạng thái", labelOf(options.statuses, c.status)),
         field("Địa chỉ", c.address || "—", true),
         field(

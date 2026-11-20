@@ -46,6 +46,8 @@ interface Props {
     initialAssigneeId?: number;
     initialReference: TaskReference | null;
     initialDueAt?: string | Dayjs | null;
+    initialTitle?: string | null;
+    initialType?: string | null;
     onClose: () => void;
 }
 
@@ -61,6 +63,8 @@ export default function TaskModal({
     initialAssigneeId,
     initialReference,
     initialDueAt,
+    initialTitle,
+    initialType,
     onClose,
 }: Props) {
     const [form] = Form.useForm<Values>();
@@ -79,9 +83,9 @@ export default function TaskModal({
         setSearch("");
 
         form.setFieldsValue({
-            title: task?.title ?? "",
+            title: task?.title ?? initialTitle ?? "",
             description: task?.description ?? "",
-            type: task?.type ?? "follow_up",
+            type: task?.type ?? initialType ?? "follow_up",
             priority: task?.priority ?? "normal",
             assignee_id:
                 task?.assignee_id ?? initialAssigneeId ?? currentUserId,
@@ -92,7 +96,7 @@ export default function TaskModal({
                   ? dayjs(initialDueAt).tz(TIMEZONE)
                   : dayjs().tz(TIMEZONE).add(1, "day").startOf("hour"),
         });
-    }, [open, task, initialReference, initialDueAt, currentUserId, form]);
+    }, [open, task, initialReference, initialDueAt, initialTitle, initialType, currentUserId, form]);
 
     useEffect(() => {
         if (!open) return;

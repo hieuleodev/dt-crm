@@ -2,14 +2,16 @@ import { useMemo } from "react";
 import { PlusOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import type { TaskRow } from "@/types/task";
-import { DEFAULT_TYPE_STYLE, TIMEZONE, TYPE_CONFIG } from "./types";
+import { DEFAULT_TYPE_STYLE, TIMEZONE, TYPE_CONFIG, type UpcomingEvent } from "./types";
 
 interface Props {
     currentDate: dayjs.Dayjs;
     tasks: TaskRow[];
+    events?: UpcomingEvent[];
     onSelectTask: (task: TaskRow) => void;
+    onSelectEvent: (event: UpcomingEvent) => void;
     onCreateOnDate?: (date: dayjs.Dayjs) => void;
-    onOpenDayModal: (date: dayjs.Dayjs, dayTasks: TaskRow[]) => void;
+    onOpenDayModal: (date: dayjs.Dayjs, dayTasks: TaskRow[], dayEvents: UpcomingEvent[]) => void;
 }
 
 const WEEKDAYS = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ Nhật"];
@@ -17,7 +19,9 @@ const WEEKDAYS = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 
 export default function MonthView({
     currentDate,
     tasks,
+    events = [],
     onSelectTask,
+    onSelectEvent,
     onCreateOnDate,
     onOpenDayModal,
 }: Props) {
@@ -34,6 +38,18 @@ export default function MonthView({
         }
         return map;
     }, [tasks]);
+
+    // Group events by date string (YYYY-MM-DD)
+    const eventsByDate = useMemo(() => {
+        const map = new Map<string, UpcomingEvent[]>();
+        for (const event of events) {
+            const dateKey = event.event_date;
+            const existing = map.get(dateKey) ?? [];
+            existing.push(event);
+            map.set(dateKey, existing);
+        }
+        return map;
+    }, [events]);
 
     // Calculate the 5 or 6 weeks for the calendar grid
     const weeks = useMemo(() => {
@@ -83,12 +99,17 @@ export default function MonthView({
                         {week.map((date) => {
                             const dateKey = date.format("YYYY-MM-DD");
                             const dayTasks = tasksByDate.get(dateKey) ?? [];
+                            const dayEvents = eventsByDate.get(dateKey) ?? [];
                             const isToday = date.isSame(today, "day");
                             const isCurrentMonth = date.isSame(currentDate, "month");
                             const isWeekend = date.isoWeekday() >= 6;
 
-                            const visibleTasks = dayTasks.slice(0, 3);
-                            const moreCount = dayTasks.length - 3;
+                            const MAX_DISPLAY = 3;
+                            const totalItems = dayEvents.length + dayTasks.length;
+                            const visibleEvents = dayEvents.slice(0, MAX_DISPLAY);
+                            const remainingSlots = Math.max(0, MAX_DISPLAY - visibleEvents.length);
+                            const visibleTasks = dayTasks.slice(0, remainingSlots);
+                            const moreCount = totalItems - (visibleEvents.length + visibleTasks.length);
 
                             return (
                                 <div
@@ -107,34 +128,75 @@ export default function MonthView({
                                 >
                                     {/* Cell header: Date number and quick add button */}
                                     <div className="crm-cal-month__cell-header">
-                                        <button
-                                            type="button"
-                                            className={`crm-cal-month__date-num ${
-                                                isToday ? "crm-cal-month__date-num--today" : ""
-                                            }`}
-                                            onClick={() => onOpenDayModal(date, dayTasks)}
-                                            title="Xem danh sách nhiệm vụ ngày này"
-                                        >
-                                            {date.date() === 1
-                                                ? `${date.date()} Th${date.month() + 1}`
-                                                : date.date()}
-                                        </button>
+                                        <div style={{ display: "flex", alignItems: "center", gap: 4, minWidth: 0 }}>
+                                            <button
+                                                type="button"
+                                                className={`crm-cal-month__date-num ${
+                                                    isToday ? "crm-cal-month__date-num--today" : ""
+                                                }`}
+                                                onClick={() => onOpenDayModal(date, dayTasks, dayEvents)}
+                                                title="Xem danh sách chi tiết ngày này"
+                                            >
+                                                {date.date() === 1
+                                                    ? `${date.date()} Th${date.month() + 1}`
+                                                    : date.date()}
+                                            </button>
+                                            {isToday && (
+                                                <span className="crm-cal-month__today-pill">
+                                                    Hôm nay
+                                                </span>
+                                            )}
+                                        </div>
 
-                                        {onCreateOnDate && <button
-                                            type="button"
-                                            className="crm-cal-month__add-btn"
-                                            title="Tạo nhiệm vụ ngày này"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                onCreateOnDate(date.hour(9).minute(0));
-                                            }}
-                                        >
-                                            <PlusOutlined />
-                                        </button>}
+                                        {onCreateOnDate && (
+                                            <button
+                                                type="button"
+                                                className="crm-cal-month__add-btn"
+                                                title="Tạo nhiệm vụ ngày này"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    onCreateOnDate(date.hour(9).minute(0));
+                                                }}
+                                            >
+                                                <PlusOutlined />
+                                            </button>
+                                        )}
                                     </div>
 
                                     {/* Event chips */}
                                     <div className="crm-cal-month__events">
+                                        {/* 1. Events (Holidays & Company Anniversaries) */}
+                                        {visibleEvents.map((event) => {
+                                            const isCompany = event.category === "company_anniversary";
+                                            return (
+                                                <button
+                                                    key={event.id}
+                                                    type="button"
+                                                    className={`crm-cal-chip ${
+                                                        isCompany
+                                                            ? "crm-cal-chip--event-company"
+                                                            : "crm-cal-chip--event-holiday"
+                                                    } ${event.is_today ? "crm-cal-chip--today-event" : ""}`}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        onSelectEvent(event);
+                                                    }}
+                                                    title={`${event.category_label}: ${event.title} (${event.subtitle})`}
+                                                >
+                                                    <span style={{ flexShrink: 0, fontSize: 11 }}>
+                                                        {event.icon}
+                                                    </span>
+                                                    <span
+                                                        className="crm-cal-chip__title"
+                                                        style={{ fontWeight: 600 }}
+                                                    >
+                                                        {isCompany ? `Kỷ niệm: ${event.title}` : event.title}
+                                                    </span>
+                                                </button>
+                                            );
+                                        })}
+
+                                        {/* 2. Tasks */}
                                         {visibleTasks.map((task) => {
                                             const typeStyle =
                                                 TYPE_CONFIG[task.type] ?? DEFAULT_TYPE_STYLE;
@@ -179,10 +241,10 @@ export default function MonthView({
                                                 className="crm-cal-month__more"
                                                 onClick={(e) => {
                                                     e.stopPropagation();
-                                                    onOpenDayModal(date, dayTasks);
+                                                    onOpenDayModal(date, dayTasks, dayEvents);
                                                 }}
                                             >
-                                                +{moreCount} nhiệm vụ khác
+                                                +{moreCount} mục khác
                                             </button>
                                         )}
                                     </div>

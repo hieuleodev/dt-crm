@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Head, Link, router, usePage } from "@inertiajs/react";
-import { Alert, Button, Card, Col, Form, Input, Row, Select } from "antd";
+import { Alert, Button, Card, Col, DatePicker, Form, Input, Row, Select } from "antd";
+import dayjs from "dayjs";
 import AppLayout from "@/layouts/AppLayout";
 import PageHeader from "@/components/common/PageHeader";
 import { emptyToNull, submitForm } from "@/lib/form";
@@ -11,7 +12,9 @@ import type {
     DuplicateMatch,
 } from "@/types/customer";
 
-type Values = Omit<CustomerBasicFormData, "id">;
+type Values = Omit<CustomerBasicFormData, "id" | "founded_date"> & {
+    founded_date?: dayjs.Dayjs | string | null;
+};
 
 interface Props extends PageProps {
     customer: CustomerBasicFormData | null;
@@ -44,6 +47,7 @@ export default function CustomerForm() {
             address: customer?.address ?? "",
             company_type: customer?.company_type ?? null,
             industry: customer?.industry ?? null,
+            founded_date: customer?.founded_date ? dayjs(customer.founded_date) : null,
             status: customer?.status ?? "active",
             notes: customer?.notes ?? "",
         });
@@ -122,6 +126,11 @@ export default function CustomerForm() {
             address: values.address?.trim() ?? "",
             company_type: values.company_type ?? null,
             industry: values.industry ?? null,
+            founded_date: values.founded_date
+                ? dayjs.isDayjs(values.founded_date)
+                    ? values.founded_date.format("YYYY-MM-DD")
+                    : values.founded_date
+                : null,
             status: values.status,
             notes: values.notes?.trim() ?? "",
         });
@@ -271,6 +280,16 @@ export default function CustomerForm() {
                                     optionFilterProp="label"
                                     placeholder="Chọn ngành nghề"
                                     options={options.industries}
+                                />
+                            </Form.Item>
+                        </Col>
+
+                        <Col xs={24} md={8}>
+                            <Form.Item name="founded_date" label="Ngày thành lập công ty">
+                                <DatePicker
+                                    format="DD/MM/YYYY"
+                                    placeholder="Chọn ngày thành lập"
+                                    style={{ width: "100%" }}
                                 />
                             </Form.Item>
                         </Col>

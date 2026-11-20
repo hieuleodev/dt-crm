@@ -59,6 +59,7 @@ export interface CustomerFormData {
     industrial_zone: string | null;
     industry: string | null;
     industry_detail: string | null;
+    founded_date: string | null;
     employee_count: number | null;
     ppe_budget_estimate: number | null;
     current_suppliers: string | null;
@@ -179,6 +180,7 @@ export type CustomerBasicFormData = Pick<
     | "address"
     | "company_type"
     | "industry"
+    | "founded_date"
     | "status"
     | "notes"
 >;

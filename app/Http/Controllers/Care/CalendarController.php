@@ -6,6 +6,7 @@ use App\Data\Care\TaskData;
 use App\Http\Controllers\Controller;
 use App\Models\Task;
 use App\Models\User;
+use App\Services\Care\UpcomingEventsService;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -15,6 +16,10 @@ use Inertia\Response;
 
 class CalendarController extends Controller
 {
+    public function __construct(
+        private readonly UpcomingEventsService $eventsService,
+    ) {}
+
     private function actor(Request $request): User
     {
         $user = $request->user();
@@ -121,6 +126,10 @@ class CalendarController extends Controller
 
         $nowUtc = CarbonImmutable::now('UTC');
 
+        $startDate = $startUtc->setTimezone($tz)->startOfDay();
+        $endDate = $endUtc->setTimezone($tz)->endOfDay();
+        $events = $this->eventsService->getEventsInRange($user, $startDate, $endDate);
+
         $summary = [
             'total' => $periodTasks->count(),
             'open' => $periodTasks->whereIn('status', Task::OPEN_STATUSES)->count(),
@@ -128,6 +137,7 @@ class CalendarController extends Controller
             'overdue' => $periodTasks->filter(
                 fn (Task $t) => $t->isOpen() && $t->due_at->isBefore($nowUtc),
             )->count(),
+            'events_count' => count($events),
         ];
 
         $taskRows = $periodTasks->map(fn (Task $task) => TaskData::from($task))->values()->all();
@@ -135,6 +145,7 @@ class CalendarController extends Controller
         if ($request->wantsJson()) {
             return response()->json([
                 'tasks' => $taskRows,
+                'events' => $events,
                 'summary' => $summary,
                 'filters' => [
                     'date' => $anchor->toDateString(),
@@ -146,6 +157,7 @@ class CalendarController extends Controller
 
         return Inertia::render('Calendar/Index', [
             'tasks' => $taskRows,
+            'events' => $events,
             'filters' => (object) [
                 'date' => $anchor->toDateString(),
                 'view' => $view,

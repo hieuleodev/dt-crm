@@ -1122,6 +1122,138 @@ button.crm-workbench__metric:not(:disabled):active {
     padding: var(--crm-space-7) var(--crm-space-4);
 }
 
+/* Workbench Upcoming Events & Holidays Widget */
+.crm-workbench-events {
+    margin-bottom: var(--crm-space-4);
+    border-radius: var(--crm-radius-md);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.crm-workbench-events .ant-card-head {
+    border-bottom: 1px solid var(--crm-border);
+    padding: var(--crm-space-3) var(--crm-space-5);
+}
+
+.crm-workbench-events .ant-card-body {
+    padding: var(--crm-space-4) var(--crm-space-5);
+}
+
+.crm-workbench-events__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+    gap: var(--crm-space-4);
+}
+
+.crm-workbench-event-card {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: var(--crm-space-3);
+    padding: var(--crm-space-4);
+    border: 1px solid var(--crm-border);
+    border-radius: var(--crm-radius-md);
+    background: var(--crm-surface-panel);
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.crm-workbench-event-card:hover {
+    border-color: #cbd5e1;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.crm-workbench-event-card--company {
+    border-left: 4px solid #7c3aed;
+    background: linear-gradient(135deg, #faf5ff 0%, #ffffff 40%);
+}
+
+.crm-workbench-event-card--holiday {
+    border-left: 4px solid #ea580c;
+    background: linear-gradient(135deg, #fff7ed 0%, #ffffff 40%);
+}
+
+.crm-workbench-event-card--today {
+    border-color: #fca5a5;
+    box-shadow: 0 0 0 1px #ef4444, 0 4px 12px rgba(239, 68, 68, 0.12);
+}
+
+.crm-workbench-event-card__top {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--crm-space-3);
+}
+
+.crm-workbench-event-card__icon-box {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: var(--crm-radius-sm);
+    background: var(--crm-surface-subtle);
+    flex-shrink: 0;
+}
+
+.crm-workbench-event-card__header-info {
+    display: flex;
+    flex-direction: column;
+    gap: var(--crm-space-1);
+    flex: 1;
+    min-width: 0;
+}
+
+.crm-workbench-event-card__title {
+    margin: var(--crm-space-1) 0 2px;
+    font-size: var(--crm-font-md);
+    font-weight: 600;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+}
+
+.crm-workbench-event-card__title a {
+    color: var(--crm-text);
+    text-decoration: none;
+}
+
+.crm-workbench-event-card__title a:hover {
+    color: var(--crm-accent-text);
+    text-decoration: underline;
+}
+
+.crm-workbench-event-card__subtitle {
+    font-size: var(--crm-font-sm);
+    color: var(--crm-text-muted);
+    font-weight: 500;
+}
+
+.crm-workbench-event-card__bottom {
+    display: flex;
+    flex-direction: column;
+    gap: var(--crm-space-3);
+    padding-top: var(--crm-space-3);
+    border-top: 1px dashed var(--crm-border);
+}
+
+.crm-workbench-event-card__desc {
+    font-size: var(--crm-font-sm);
+    color: var(--crm-text-muted);
+    line-height: 1.5;
+}
+
+.crm-workbench-event-card__actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--crm-space-2);
+    flex-wrap: wrap;
+    margin-top: var(--crm-space-1);
+}
+
+@media (max-width: 768px) {
+    .crm-workbench-events__grid {
+        grid-template-columns: 1fr;
+    }
+}
+
 .leads-page {
     display: flex;
     flex-direction: column;
@@ -1631,36 +1763,38 @@ button.crm-workbench__metric:not(:disabled):active {
 }
 
 .crm-cal-container {
-    border: 1px solid var(--crm-border);
+    border: 1px solid #cbd5e1;
     border-radius: var(--crm-radius-md);
     overflow: hidden;
-    background: var(--crm-surface-panel);
+    background: #ffffff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 /* Month View */
 .crm-cal-month {
     display: flex;
     flex-direction: column;
-    min-height: 700px;
+    min-height: 720px;
     user-select: none;
+    background: #ffffff;
 }
 
 .crm-cal-month__header {
-    display: flex;
-    border-bottom: 1px solid var(--crm-border);
-    background: #fafafa;
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    border-bottom: 2px solid #cbd5e1;
+    background: #f8fafc;
 }
 
 .crm-cal-month__header-col {
-    flex: 1;
     text-align: center;
     padding: 10px 4px;
-    font-size: var(--crm-font-xs);
-    font-weight: 600;
+    font-size: 13px;
+    font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    color: var(--crm-text-muted);
-    border-right: 1px solid var(--crm-border);
+    color: #475569;
+    border-right: 1px solid #e2e8f0;
 }
 
 .crm-cal-month__header-col:last-child {
@@ -1669,6 +1803,7 @@ button.crm-workbench__metric:not(:disabled):active {
 
 .crm-cal-month__header-col--weekend {
     color: #e11d48;
+    background: #fff1f2;
 }
 
 .crm-cal-month__grid {
@@ -1678,10 +1813,11 @@ button.crm-workbench__metric:not(:disabled):active {
 }
 
 .crm-cal-month__week {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
     flex: 1;
-    min-height: 120px;
-    border-bottom: 1px solid var(--crm-border);
+    min-height: 125px;
+    border-bottom: 1px solid #e2e8f0;
 }
 
 .crm-cal-month__week:last-child {
@@ -1689,15 +1825,16 @@ button.crm-workbench__metric:not(:disabled):active {
 }
 
 .crm-cal-month__cell {
-    flex: 1;
-    border-right: 1px solid var(--crm-border);
-    padding: 4px 6px;
+    border-right: 1px solid #e2e8f0;
+    padding: 6px 8px;
     display: flex;
     flex-direction: column;
-    background: var(--crm-surface-panel);
-    transition: background var(--crm-motion);
+    background: #ffffff;
+    min-width: 0;
+    overflow: hidden;
     position: relative;
     cursor: pointer;
+    transition: background 0.15s ease;
 }
 
 .crm-cal-month__cell:last-child {
@@ -1705,27 +1842,41 @@ button.crm-workbench__metric:not(:disabled):active {
 }
 
 .crm-cal-month__cell:hover {
-    background: #f8fafc;
+    background: #f1f5f9;
+}
+
+.crm-cal-month__cell--weekend {
+    background: #fafaf9;
+}
+
+.crm-cal-month__cell--weekend:hover {
+    background: #f5f5f4;
 }
 
 .crm-cal-month__cell--other-month {
-    background: #fafafa;
-    color: #9ca3af;
+    background: #f8fafc;
+}
+
+.crm-cal-month__cell--other-month .crm-cal-month__date-num {
+    color: #94a3b8 !important;
+    font-weight: 500;
 }
 
 .crm-cal-month__cell--today {
-    background: #f0f7ff;
+    background: #eff6ff !important;
+    box-shadow: inset 0 0 0 2px #3b82f6;
+    z-index: 2;
 }
 
 .crm-cal-month__cell--today:hover {
-    background: #e6f2ff;
+    background: #dbeafe !important;
 }
 
 .crm-cal-month__cell-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 4px;
+    margin-bottom: 6px;
     pointer-events: none;
 }
 
@@ -1733,13 +1884,14 @@ button.crm-workbench__metric:not(:disabled):active {
     pointer-events: auto;
     background: none;
     border: none;
-    font-size: var(--crm-font-xs);
-    font-weight: 600;
-    color: var(--crm-text);
-    padding: 2px 6px;
-    border-radius: var(--crm-radius-pill);
+    font-size: 14px;
+    font-weight: 700;
+    color: #1e293b;
+    padding: 3px 8px;
+    border-radius: 6px;
     cursor: pointer;
-    line-height: 1;
+    line-height: 1.2;
+    transition: background 0.15s ease, color 0.15s ease;
 }
 
 .crm-cal-month__date-num:hover {
@@ -1747,8 +1899,21 @@ button.crm-workbench__metric:not(:disabled):active {
 }
 
 .crm-cal-month__date-num--today {
-    background: #1a73e8 !important;
+    background: #2563eb !important;
     color: #ffffff !important;
+    box-shadow: 0 2px 4px rgba(37, 99, 235, 0.35);
+}
+
+.crm-cal-month__today-pill {
+    font-size: 10px;
+    font-weight: 700;
+    color: #2563eb;
+    background: #dbeafe;
+    padding: 1px 6px;
+    border-radius: 999px;
+    line-height: 1.4;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
 }
 
 .crm-cal-month__add-btn {
@@ -1757,9 +1922,9 @@ button.crm-workbench__metric:not(:disabled):active {
     border: none;
     background: none;
     cursor: pointer;
-    font-size: 10px;
-    color: var(--crm-text-muted);
-    padding: 2px;
+    font-size: 11px;
+    color: #64748b;
+    padding: 3px 5px;
     border-radius: 4px;
     transition: opacity var(--crm-motion);
 }
@@ -1770,32 +1935,35 @@ button.crm-workbench__metric:not(:disabled):active {
 
 .crm-cal-month__add-btn:hover {
     background: #e2e8f0;
-    color: var(--crm-text);
+    color: #0f172a;
 }
 
 .crm-cal-month__events {
     display: flex;
     flex-direction: column;
-    gap: 3px;
+    gap: 4px;
+    min-width: 0;
     overflow: hidden;
 }
 
 .crm-cal-chip {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 5px;
     width: 100%;
-    padding: 2px 6px;
+    min-width: 0;
+    padding: 3px 6px;
     border: none;
     border-left: 3px solid;
     border-radius: 4px;
     font-size: 11px;
-    line-height: 1.3;
+    line-height: 1.35;
     text-align: left;
     cursor: pointer;
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
+    box-sizing: border-box;
     transition: transform var(--crm-motion), box-shadow var(--crm-motion);
 }
 
@@ -1805,13 +1973,15 @@ button.crm-workbench__metric:not(:disabled):active {
 }
 
 .crm-cal-chip__time {
-    font-weight: 600;
+    font-weight: 700;
     font-variant-numeric: tabular-nums;
     font-size: 10px;
     flex-shrink: 0;
 }
 
 .crm-cal-chip__title {
+    flex: 1;
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -1827,6 +1997,73 @@ button.crm-workbench__metric:not(:disabled):active {
     box-shadow: 0 0 0 1px #dc2626;
 }
 
+.crm-cal-chip--event-company {
+    border-left: 3px solid #7c3aed !important;
+    background: #faf5ff !important;
+    color: #6b21a8 !important;
+}
+
+.crm-cal-chip--event-company:hover {
+    background: #f3e8ff !important;
+}
+
+.crm-cal-chip--event-holiday {
+    border-left: 3px solid #ea580c !important;
+    background: #fff7ed !important;
+    color: #c2410c !important;
+}
+
+.crm-cal-chip--event-holiday:hover {
+    background: #ffedd5 !important;
+}
+
+.crm-cal-chip--today-event {
+    box-shadow: 0 0 0 1px #ef4444;
+}
+
+/* All-Day Events row in Week View */
+.crm-cal-allday-row {
+    display: flex;
+    border-bottom: 2px solid #cbd5e1;
+    background: #f8fafc;
+    min-height: 36px;
+}
+
+.crm-cal-allday-gutter {
+    width: 60px;
+    flex-shrink: 0;
+    padding: 6px 8px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #64748b;
+    text-align: right;
+    border-right: 1px solid #e2e8f0;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+.crm-cal-allday-cols {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    flex: 1;
+    min-width: 0;
+}
+
+.crm-cal-allday-col {
+    min-width: 0;
+    padding: 4px 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    border-right: 1px solid #e2e8f0;
+    overflow: hidden;
+}
+
+.crm-cal-allday-col:last-child {
+    border-right: none;
+}
+
 .crm-cal-month__more {
     border: none;
     background: none;
@@ -1834,9 +2071,13 @@ button.crm-workbench__metric:not(:disabled):active {
     font-weight: 600;
     color: #1a73e8;
     text-align: left;
-    padding: 2px 4px;
+    padding: 3px 6px;
     cursor: pointer;
     border-radius: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
 }
 
 .crm-cal-month__more:hover {
@@ -1874,12 +2115,14 @@ button.crm-workbench__metric:not(:disabled):active {
 }
 
 .crm-cal-week__header-cols {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
     flex: 1;
+    min-width: 0;
 }
 
 .crm-cal-week__header-col {
-    flex: 1;
+    min-width: 0;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -1965,14 +2208,15 @@ button.crm-workbench__metric:not(:disabled):active {
 }
 
 .crm-cal-week__columns {
-    display: flex;
-    flex: 1;
-    position: relative;
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    position: absolute;
+    inset: 0;
     z-index: 1;
 }
 
 .crm-cal-week__col {
-    flex: 1;
+    min-width: 0;
     position: relative;
     border-right: 1px solid #f0f0f0;
     cursor: pointer;
