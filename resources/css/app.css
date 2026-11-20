@@ -2452,8 +2452,8 @@ button.crm-workbench__metric:not(:disabled):active {
 .crm-history__record > a { font-weight: 600; overflow-wrap: anywhere; }
 .crm-history__record > .ant-typography { overflow-wrap: anywhere; }
 .crm-history__tab-placeholder { min-height: 1px; }
-.crm-history__hint { display: block; margin-top: 16px; }
-.crm-history__hint > .anticon { margin-inline-end: 4px; }
+.crm-history__task-table .ant-pagination-total-text { margin-inline-end: auto; }
+.crm-history__pagination-summary { display: inline-flex; align-items: center; gap: 4px; margin-inline-start: 8px; }
 @media (max-width: 767px) {
     .crm-history__metrics { grid-template-columns: minmax(0, 1fr); gap: 10px; }
     .crm-history__metric .ant-card-body { min-height: 84px; padding: 14px; }

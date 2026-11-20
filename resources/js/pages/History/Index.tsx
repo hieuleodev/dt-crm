@@ -232,6 +232,11 @@ export default function Index() {
             children:
                 filters.type === key ? (
                     <Table<HistoryRecord>
+                        className={
+                            filters.type === "task"
+                                ? "crm-history__task-table"
+                                : undefined
+                        }
                         rowKey="id"
                         columns={columns}
                         dataSource={records.data}
@@ -247,8 +252,25 @@ export default function Index() {
                             pageSize: records.per_page,
                             total: records.total,
                             showSizeChanger: false,
-                            showTotal: (total) =>
-                                `${total.toLocaleString("vi-VN")} bản ghi`,
+                            showTotal: (total) => {
+                                const recordCount = `${total.toLocaleString("vi-VN")} bản ghi`;
+
+                                if (filters.type !== "task") {
+                                    return recordCount;
+                                }
+
+                                return (
+                                    <>
+                                        {recordCount}
+                                        <span className="crm-history__pagination-summary">
+                                            <SolutionOutlined />
+                                            {`Nhiệm vụ hoàn thành: ${summary.breakdown.task.successful.toLocaleString("vi-VN")}`}
+                                            {" · "}
+                                            {`Đã hủy: ${summary.breakdown.task.failed.toLocaleString("vi-VN")}`}
+                                        </span>
+                                    </>
+                                );
+                            },
                         }}
                         onChange={(pagination) =>
                             visit({ page: pagination.current ?? 1 })
@@ -375,23 +397,6 @@ export default function Index() {
                                 title={`${summary.breakdown.lead.failed.toLocaleString("vi-VN")} Lead không phù hợp.`}
                             />
                         )}
-                    {filters.type === "task" && (
-                        <Typography.Text
-                            className="crm-history__hint"
-                            type="secondary"
-                        >
-                            <SolutionOutlined />{" "}
-                            Nhiệm vụ hoàn thành:{" "}
-                            {summary.breakdown.task.successful.toLocaleString(
-                                "vi-VN",
-                            )}
-                            {" · "}
-                            Đã hủy:{" "}
-                            {summary.breakdown.task.failed.toLocaleString(
-                                "vi-VN",
-                            )}
-                        </Typography.Text>
-                    )}
                 </Card>
             </div>
         </AppLayout>
