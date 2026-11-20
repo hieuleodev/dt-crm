@@ -22,13 +22,17 @@ class HistoryTest extends TestCase
             'role' => UserRole::Manager,
             'is_active' => true,
         ]);
+        $sales = User::factory()->create([
+            'role' => UserRole::Sales,
+            'is_active' => true,
+        ]);
         $disqualifiedLead = $this->lead($manager, 'lead', 'disqualified', 'Disqualified lead');
         $this->lead($manager, 'lead', 'qualified', 'Qualified lead');
         $this->lead($manager, 'opportunity', 'won', 'Won opportunity');
         $this->lead($manager, 'opportunity', 'lost', 'Lost opportunity');
-        $this->closeTask($this->task($manager), 'completed');
-        $this->closeTask($this->task($manager), 'cancelled');
-        $this->task($manager);
+        $this->closeTask($this->task($sales, $manager), 'completed');
+        $this->closeTask($this->task($sales, $manager), 'cancelled');
+        $this->task($sales, $manager);
 
         $this->actingAs($manager)->get(route('history.index'))
             ->assertOk()
@@ -152,7 +156,7 @@ class HistoryTest extends TestCase
         ]);
     }
 
-    private function task(User $assignee): Task
+    private function task(User $assignee, ?User $actor = null): Task
     {
         return (new SaveTask)->handle([
             'title' => 'Sample history task',
@@ -162,7 +166,7 @@ class HistoryTest extends TestCase
             'assignee_id' => $assignee->id,
             'reference' => null,
             'due_at' => now('UTC')->addHour()->toIso8601String(),
-        ], $assignee);
+        ], $actor ?? $assignee);
     }
 
     private function closeTask(Task $task, string $status): void

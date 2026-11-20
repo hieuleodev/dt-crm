@@ -44,7 +44,18 @@ const MENU = [
         label: "Công việc hôm nay",
         disabled: false,
     },
-    { key: "/customers", icon: <TeamOutlined />, label: "Khách hàng" },
+    {
+        key: "/customers",
+        icon: <TeamOutlined />,
+        label: "Khách hàng",
+    },
+    // Quyền xem menu quản lý tài khoản lấy theo vai trò. Controller kiểm tra lại các thao tác.
+    {
+        key: "/users",
+        icon: <UserOutlined />,
+        label: "Quản lý tài khoản",
+        managerOnly: true,
+    },
     {
         key: "/leads",
         icon: <FunnelPlotOutlined />,

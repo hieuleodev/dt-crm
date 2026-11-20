@@ -33,6 +33,8 @@ import {
     UserAddOutlined,
 } from "@ant-design/icons";
 import dayjs from "dayjs";
+import LeadProductList from "@/components/common/LeadProductList";
+import type { LeadProduct } from "@/types/lead-product";
 import AppLayout from "@/layouts/AppLayout";
 import TaskModal from "@/components/tasks/TaskModal";
 import type { PageProps } from "@/types";
@@ -51,6 +53,8 @@ interface Opportunity {
     owner_id?: number;
     customer_id: number | null;
     title: string;
+    products: LeadProduct[];
+    product_total_managed: boolean;
     contact_name: string;
     company: string | null;
     email: string | null;
@@ -170,6 +174,7 @@ export default function Index({
 }: Props) {
     const { auth } = usePage<Props>().props;
     const isManager = auth.user?.role !== "sales";
+    const canUseTasks = auth.user !== null;
     const { message } = App.useApp();
 
     const [viewMode, setViewMode] = useState<ViewMode>("kanban");
@@ -534,6 +539,8 @@ export default function Index({
                             </Typography.Text>
                         )
                     )}
+                    {/* Hiển thị các điều khoản đã lưu khi chuyển Lead sang Cơ hội. */}
+                    <LeadProductList products={opp.products} />
 
                     <Typography.Text type="secondary">
                         Liên hệ: {opp.contact_name}
@@ -670,27 +677,31 @@ export default function Index({
                     >
                         Sửa
                     </Button>
-                    <Button
-                        className="crm-btn-action--task"
-                        icon={<PlusOutlined />}
-                        onClick={() => openQuickTask(opp)}
-                    >
-                        Giao việc
-                    </Button>
-                    <Button
-                        className={
-                            opp.tasks_count
-                                ? "crm-btn-action--list-active"
-                                : undefined
-                        }
-                        icon={<CheckSquareOutlined />}
-                        onClick={() =>
-                            router.visit(`/tasks?lead_id=${opp.id}`)
-                        }
-                    >
-                        DS Việc
-                        {opp.tasks_count ? ` (${opp.tasks_count})` : ""}
-                    </Button>
+                    {canUseTasks && (
+                        <>
+                            <Button
+                                className="crm-btn-action--task"
+                                icon={<PlusOutlined />}
+                                onClick={() => openQuickTask(opp)}
+                            >
+                                Giao việc
+                            </Button>
+                            <Button
+                                className={
+                                    opp.tasks_count
+                                        ? "crm-btn-action--list-active"
+                                        : undefined
+                                }
+                                icon={<CheckSquareOutlined />}
+                                onClick={() =>
+                                    router.visit(`/tasks?lead_id=${opp.id}`)
+                                }
+                            >
+                                DS Việc
+                                {opp.tasks_count ? ` (${opp.tasks_count})` : ""}
+                            </Button>
+                        </>
+                    )}
                     {!opp.customer_id && (
                         <Button
                             className="crm-btn-action--convert"
@@ -1057,6 +1068,8 @@ export default function Index({
                                                                                 </Typography.Text>
                                                                             )
                                                                         )}
+
+                                                                        <LeadProductList products={opp.products} />
 
                                                                         <div className="crm-kanban__card-value">
                                                                             {money.format(
@@ -1652,6 +1665,7 @@ export default function Index({
                             >
                                 <InputNumber<string>
                                     {...inputA11y("estimated_value")}
+                                    disabled={editing?.product_total_managed}
                                     className="leads-value-input"
                                     stringMode
                                     min="0"
@@ -1706,7 +1720,7 @@ export default function Index({
                 </Form>
             </Modal>
 
-            {taskOptions && (
+            {canUseTasks && taskOptions && (
                 <TaskModal
                     open={taskModalOpen}
                     task={null}

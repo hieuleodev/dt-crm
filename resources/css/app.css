@@ -1366,6 +1366,124 @@ button.crm-workbench__metric:not(:disabled):active {
     width: 100%;
 }
 
+.leads-editor-modal.ant-modal {
+    top: var(--crm-space-3);
+}
+
+.leads-editor-modal__body {
+    max-block-size: calc(100dvh - 144px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-inline-end: var(--crm-space-1);
+}
+
+.leads-editor-form > .ant-form-item,
+.leads-editor-form > .ant-row > .ant-col > .ant-form-item {
+    margin-block-end: var(--crm-space-4);
+}
+
+.leads-product-list {
+    margin: 4px 0;
+    padding-inline-start: 18px;
+    color: var(--crm-text-muted);
+    overflow-wrap: anywhere;
+}
+
+.leads-products {
+    display: grid;
+    gap: var(--crm-space-3);
+    margin-block-end: var(--crm-space-4);
+}
+
+.leads-products__header,
+.leads-products__total {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--crm-space-2);
+}
+
+.leads-products__row {
+    display: grid;
+    grid-template-columns: minmax(0, 0.85fr) repeat(2, minmax(0, 1fr));
+    align-items: start;
+    gap: var(--crm-space-3);
+    border: 1px solid var(--crm-border);
+    border-radius: var(--crm-radius-sm);
+    padding: var(--crm-space-3);
+}
+
+.leads-products__picker {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: end;
+    gap: var(--crm-space-2);
+}
+
+.leads-products__name {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    align-self: center;
+}
+
+.leads-products__thumbnail {
+    display: grid;
+    place-items: center;
+    width: 52px;
+    height: 52px;
+    overflow: hidden;
+    border-radius: var(--crm-radius-sm);
+    border: 1px solid var(--crm-border);
+    background: var(--crm-surface-subtle);
+    color: var(--crm-text-muted);
+}
+
+.leads-products__thumbnail img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.leads-products__row .ant-form-item {
+    margin-bottom: 0;
+    min-width: 0;
+}
+
+.leads-products__row .ant-input-number {
+    width: 100%;
+}
+
+.leads-products__amount {
+    display: block;
+    border-radius: var(--crm-radius-sm);
+    background: var(--crm-surface-subtle);
+    padding: var(--crm-space-2);
+    text-align: end;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
+}
+
+.leads-products__total {
+    padding: var(--crm-space-3);
+    background: var(--crm-surface-subtle);
+    border-radius: var(--crm-radius-sm);
+    font-weight: 600;
+}
+
+@media (max-width: 380px) {
+    .leads-products__row {
+        gap: var(--crm-space-2);
+        padding: var(--crm-space-2);
+    }
+
+    .leads-products__thumbnail {
+        width: 42px;
+        height: 42px;
+    }
+}
+
 .crm-kanban {
     display: grid;
     grid-template-columns: repeat(4, minmax(270px, 1fr));
@@ -2757,4 +2875,45 @@ button.crm-workbench__metric:not(:disabled):active {
     .crm-dashboard__metric .ant-card-body { padding: 14px; min-height: 156px; }
     .crm-dashboard__metric-top { font-size: 13px; }
     .crm-dashboard__metric strong { font-size: 28px; }
+}
+
+/* Bố cục trang quản lý tài khoản, gồm tiêu đề, thao tác và bộ lọc. */
+.crm-page {
+    display: grid;
+    gap: var(--crm-space-5);
+    min-width: 0;
+}
+
+.crm-page__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--crm-space-4);
+}
+
+.crm-page__header .ant-typography {
+    margin-bottom: 0;
+}
+
+.crm-list-filters {
+    display: grid;
+    grid-template-columns: minmax(240px, 1fr) minmax(160px, 220px) minmax(160px, 220px) auto;
+    gap: var(--crm-space-3);
+    margin-bottom: var(--crm-space-4);
+}
+
+.crm-list-filters > * {
+    min-width: 0;
+}
+
+/* Xếp bộ lọc thành một cột để các ô vừa màn hình hẹp. */
+@media (max-width: 768px) {
+    .crm-page__header {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .crm-list-filters {
+        grid-template-columns: minmax(0, 1fr);
+    }
 }

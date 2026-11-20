@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Customer;
 
+use App\Enums\Staff\UserRole;
 use App\Http\Controllers\Controller;
 use App\Models\Customer;
 use App\Models\CustomerNote;
@@ -30,16 +31,21 @@ class CustomerNoteController extends Controller
             'page' => ['nullable', 'integer', 'min:1'],
         ]);
 
-        $notes = CustomerNote::query()
+        $notesQuery = CustomerNote::query()
             ->where('customer_id', $customer->id)
-            ->with([
-                'author:id,name,deleted_at',
+            ->with('author:id,name,deleted_at');
 
+        // Ghi chú vẫn tải được riêng. Chi tiết nhắc việc chỉ đi kèm khi có quyền vào phân hệ Nhiệm vụ.
+        if ($user->canAccessWorkArea('tasks')) {
+            $notesQuery->with([
                 'task' => fn ($query) => $query
                     ->visibleTo($user)
                     ->where('customer_id', $customer->id)
                     ->with('assignee:id,name'),
-            ])
+            ]);
+        }
+
+        $notes = $notesQuery
             ->orderByDesc('created_at')
             ->orderByDesc('id')
             ->paginate(10)
@@ -53,7 +59,7 @@ class CustomerNoteController extends Controller
                 'author' => $note->author?->name
                     ?? 'Không có thông tin người tạo',
 
-                'task' => $note->task ? [
+                'task' => $user->canAccessWorkArea('tasks') && $note->task ? [
                     'id' => $note->task->id,
                     'title' => $note->task->title,
                     'due_at' => $note->task->due_at
@@ -72,16 +78,12 @@ class CustomerNoteController extends Controller
                 ] : null,
             ]);
 
+        // Khi khách hàng đã có người phụ trách, danh sách nhận nhắc việc chỉ xét người đó.
         $assignees = $user->isManager()
             ? User::query()
                 ->where('is_active', true)
-                ->where(function ($query) use ($customer) {
-                    $query->whereIn('role', ['admin', 'manager']);
-
-                    if ($customer->owner_id) {
-                        $query->orWhere('id', $customer->owner_id);
-                    }
-                })
+                ->where('role', UserRole::Sales->value)
+                ->when($customer->owner_id, fn ($query, $ownerId) => $query->whereKey($ownerId))
                 ->orderBy('name')
                 ->get(['id', 'name'])
             : [$user->only('id', 'name')];
@@ -139,6 +141,7 @@ class CustomerNoteController extends Controller
                 'integer',
                 Rule::exists('users', 'id')
                     ->where('is_active', true)
+                    ->where('role', UserRole::Sales->value)
                     ->whereNull('deleted_at'),
             ],
         ], [
