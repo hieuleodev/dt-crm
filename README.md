@@ -90,10 +90,12 @@ php artisan serve
 ```
 Mở trình duyệt: **[http://127.0.0.1:8000](http://127.0.0.1:8000)**
 
+Nếu cần đồng bộ danh mục Sapo khi chỉ chạy web bằng `php artisan serve`, mở thêm một terminal và chạy `php artisan queue:work sapo --queue=sapo --sleep=2 --timeout=3600 --tries=1 --no-interaction`.
+
 ---
 
 ### Cách 2: Chế độ phát triển (Dev Mode — Hỗ trợ Hot-Reload React)
-Mở **2 cửa sổ PowerShell**:
+Dùng `composer run dev` để khởi động web, Vite và các worker, bao gồm worker Sapo. Nếu khởi động riêng từng phần, mở **2 cửa sổ PowerShell** và chạy thêm worker ở trên khi cần đồng bộ Sapo:
 
 - **Cửa sổ 1 (Backend PHP):**
   ```powershell

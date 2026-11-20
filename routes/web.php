@@ -51,6 +51,7 @@ Route::middleware('auth')->group(function () {
     // Chặn quyền tại route phía máy chủ; ẩn menu ở giao diện không thay thế được bước kiểm tra này.
     Route::middleware('work.permission:leads')->group(function () {
         Route::get('/leads', [LeadController::class, 'index'])->name('leads.index');
+        Route::get('/leads/customer-options', [LeadController::class, 'customerOptions'])->name('leads.customer-options');
         Route::post('/leads', [LeadController::class, 'store'])->name('leads.store');
         Route::put('/leads/{lead}', [LeadController::class, 'update'])->name('leads.update');
         Route::post('/leads/{lead}/convert', [LeadController::class, 'convert'])->name('leads.convert');

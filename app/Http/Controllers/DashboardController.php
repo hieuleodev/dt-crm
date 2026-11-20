@@ -36,7 +36,7 @@ class DashboardController extends Controller
                     ->whereNull('deleted_at'),
             ],
         ]) : [];
-        $assigneeId = $filters['assignee_id'] ?? null;
+        $assigneeId = isset($filters['assignee_id']) ? (int) $filters['assignee_id'] : null;
         $now = CarbonImmutable::now('UTC');
         $start = $now->setTimezone('Asia/Ho_Chi_Minh')->startOfDay()->utc();
         $end = $start->addDay();
@@ -64,10 +64,11 @@ class DashboardController extends Controller
 
         return Inertia::render('Dashboard/Index', [
             'canAssign' => $canAssign,
-            'filters' => ['assignee_id' => $assigneeId ? (int) $assigneeId : null],
+            'filters' => ['assignee_id' => $assigneeId],
+            'leadListUrl' => $canSeeLeads ? route('leads.index', ['owner_id' => $assigneeId], absolute: false) : null,
             'summary' => [
                 'customers' => $canSeeCustomers ? Customer::query()->visibleTo($user)->when($assigneeId, fn ($query) => $query->where('owner_id', $assigneeId))->count() : 0,
-                'leads' => $canSeeLeads ? Lead::query()->visibleTo($user)->where('kind', 'lead')->when($assigneeId, fn ($query) => $query->where('owner_id', $assigneeId))->count() : 0,
+                'leadRecords' => $canSeeLeads ? Lead::query()->visibleInLeadList($user, $assigneeId)->count() : 0,
                 'open' => (clone $open)->count(),
                 'today' => (clone $open)->where('due_at', '>=', $now)->where('due_at', '<', $end)->count(),
                 'overdue' => (clone $open)->where('due_at', '<', $now)->count(),

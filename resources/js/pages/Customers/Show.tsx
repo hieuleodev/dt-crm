@@ -20,6 +20,7 @@ import {
     PlusOutlined,
     SwapOutlined,
 } from "@ant-design/icons";
+import LeadProductList from "@/components/common/LeadProductList";
 import AppLayout from "@/layouts/AppLayout";
 import PageHeader from "@/components/common/PageHeader";
 import ContactModal from "@/components/customer/ContactModal";
@@ -482,15 +483,7 @@ export default function Show() {
                         <strong>{opp.title}</strong>
                     </div>
                     {/* Dùng thông tin báo giá đã lưu trên Cơ hội để hiển thị trong hồ sơ khách hàng. */}
-                    {opp.requested_product && (
-                        <div className="crm-muted">
-                            Sản phẩm: {opp.requested_product}
-                            {opp.requested_quantity &&
-                            opp.requested_unit_price
-                                ? ` · ${formatNumber(Number(opp.requested_quantity))} × ${formatVnd(Number(opp.requested_unit_price))}`
-                                : ""}
-                        </div>
-                    )}
+                    <LeadProductList products={opp.products} />
                     <div className="crm-muted">
                         {opp.contact_name}
                         {opp.phone ? ` · ${opp.phone}` : ""}

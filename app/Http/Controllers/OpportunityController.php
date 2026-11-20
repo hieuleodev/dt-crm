@@ -214,6 +214,9 @@ class OpportunityController extends Controller
     ): RedirectResponse {
         $user = $request->user();
         $data = $this->normalizePayload($request->validated());
+        if ($opportunity->product_total_managed) {
+            unset($data['estimated_value']);
+        }
 
         if (! $user->isManager() || empty($data['owner_id'])) {
             unset($data['owner_id']);

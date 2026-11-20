@@ -170,9 +170,7 @@ class CustomerController extends Controller
                     ->map(fn (Lead $opp) => [
                         'id' => $opp->id,
                         'title' => $opp->title,
-                        'requested_product' => $opp->requested_product,
-                        'requested_quantity' => $opp->requested_quantity,
-                        'requested_unit_price' => $opp->requested_unit_price,
+                        'products' => $opp->products,
                         'contact_name' => $opp->contact_name,
                         'phone' => $opp->phone,
                         'email' => $opp->email,

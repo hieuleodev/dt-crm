@@ -33,9 +33,10 @@ import {
     UserAddOutlined,
 } from "@ant-design/icons";
 import dayjs from "dayjs";
+import LeadProductList from "@/components/common/LeadProductList";
+import type { LeadProduct } from "@/types/lead-product";
 import AppLayout from "@/layouts/AppLayout";
 import TaskModal from "@/components/tasks/TaskModal";
-import { formatNumber } from "@/lib/format";
 import type { PageProps } from "@/types";
 import type { TaskAssignee, TaskOptions, TaskReference } from "@/types/task";
 
@@ -52,9 +53,8 @@ interface Opportunity {
     owner_id?: number;
     customer_id: number | null;
     title: string;
-    requested_product: string | null;
-    requested_quantity: string | null;
-    requested_unit_price: string | null;
+    products: LeadProduct[];
+    product_total_managed: boolean;
     contact_name: string;
     company: string | null;
     email: string | null;
@@ -538,14 +538,7 @@ export default function Index({
                         )
                     )}
                     {/* Hiển thị các điều khoản đã lưu khi chuyển Lead sang Cơ hội. */}
-                    {opp.requested_product && (
-                        <Typography.Text type="secondary">
-                            Sản phẩm: {opp.requested_product}
-                            {opp.requested_quantity && opp.requested_unit_price
-                                ? ` · ${formatNumber(Number(opp.requested_quantity))} × ${money.format(Number(opp.requested_unit_price))}`
-                                : ""}
-                        </Typography.Text>
-                    )}
+                    <LeadProductList products={opp.products} />
 
                     <Typography.Text type="secondary">
                         Liên hệ: {opp.contact_name}
@@ -1035,14 +1028,7 @@ export default function Index({
                                                                             )
                                                                         )}
 
-                                                                        {opp.requested_product && (
-                                                                            <Typography.Text type="secondary">
-                                                                                Sản phẩm:{" "}
-                                                                                {
-                                                                                    opp.requested_product
-                                                                                }
-                                                                            </Typography.Text>
-                                                                        )}
+                                                                        <LeadProductList products={opp.products} />
 
                                                                         <div className="crm-kanban__card-value">
                                                                             {money.format(
@@ -1638,6 +1624,7 @@ export default function Index({
                             >
                                 <InputNumber<string>
                                     {...inputA11y("estimated_value")}
+                                    disabled={editing?.product_total_managed}
                                     className="leads-value-input"
                                     stringMode
                                     min="0"

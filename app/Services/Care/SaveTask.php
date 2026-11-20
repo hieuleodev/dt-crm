@@ -63,7 +63,6 @@ class SaveTask
                     ? Customer::query()
                     : Lead::query();
 
-                // Người thực hiện phải truy cập được hồ sơ gắn với nhiệm vụ.
                 $target = $query
                     ->visibleTo($actor)
                     ->lockForUpdate()
@@ -75,12 +74,12 @@ class SaveTask
                     ]);
                 }
 
-                if (
-                    ! $assignee->isManager()
-                    && $target->owner_id !== $assignee->id
-                ) {
+                // Dùng cùng phạm vi quyền với danh sách hồ sơ để người nhận mở được hồ sơ từ nhiệm vụ.
+                if (! $target->newQuery()->visibleTo($assignee)->whereKey($target->id)->exists()) {
                     throw ValidationException::withMessages([
-                        'assignee_id' => 'Người thực hiện phải có quyền xem hồ sơ liên quan.',
+                        'assignee_id' => $target instanceof Lead && $target->kind === 'lead'
+                            ? 'Hãy chọn người phụ trách hiển thị trên Lead. Nếu Lead thuộc khách hàng đã có hồ sơ, hãy liên kết hồ sơ đó trước khi giao việc.'
+                            : 'Người thực hiện phải có quyền xem hồ sơ liên quan.',
                     ]);
                 }
 

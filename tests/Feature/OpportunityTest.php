@@ -277,6 +277,91 @@ class OpportunityTest extends TestCase
         $this->assertDatabaseCount('contacts', 1);
     }
 
+    public function test_customer_owner_can_convert_a_linked_lead_created_by_admin(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin, 'is_active' => true]);
+        $sales = User::factory()->create(['role' => UserRole::Sales, 'is_active' => true]);
+        $customer = app(SaveCustomer::class)->handle(['name' => 'Linked customer'], $sales);
+
+        $this->actingAs($admin)->post(route('leads.store'), [
+            'title' => 'Qualified request',
+            'contact_name' => 'Buyer',
+            'email' => 'buyer@example.test',
+            'stage' => 'qualified',
+            'customer_id' => $customer->id,
+        ])->assertSessionHasNoErrors();
+        $lead = Lead::sole();
+
+        $this->actingAs($sales)->post(route('leads.convert', $lead))->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('leads', [
+            'id' => $lead->id,
+            'kind' => 'opportunity',
+            'customer_id' => $customer->id,
+            'owner_id' => $sales->id,
+        ]);
+        $this->assertDatabaseCount('customers', 1);
+    }
+
+    public function test_lead_customer_search_returns_contact_defaults_for_each_matching_customer(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin, 'is_active' => true]);
+        $saveCustomer = app(SaveCustomer::class);
+        $company = $saveCustomer->handle([
+            'name' => 'Acme Tools',
+            'email' => 'office@example.test',
+            'phone' => '0912345678',
+        ], $admin);
+        $company->contacts()->create(['full_name' => 'Secondary contact']);
+        $company->contacts()->create([
+            'full_name' => 'Former primary contact',
+            'is_primary' => true,
+            'left_at' => '2026-01-01',
+        ]);
+        $company->contacts()->create([
+            'full_name' => 'Current primary contact',
+            'email' => 'buyer@example.test',
+            'is_primary' => true,
+        ]);
+        $customerWithoutContacts = $saveCustomer->handle([
+            'name' => 'Acme Supplies',
+            'email' => 'supplies@example.test',
+        ], $admin);
+        $saveCustomer->handle(['name' => 'Unrelated customer'], $admin);
+
+        $this->actingAs($admin)->getJson(route('leads.customer-options', ['q' => 'Acme']))
+            ->assertOk()
+            ->assertExactJson(['options' => [
+                [
+                    'value' => $customerWithoutContacts->id,
+                    'label' => "{$customerWithoutContacts->code} · Acme Supplies",
+                    'details' => [
+                        'contact_name' => '',
+                        'company' => 'Acme Supplies',
+                        'email' => 'supplies@example.test',
+                        'phone' => '',
+                    ],
+                ],
+                [
+                    'value' => $company->id,
+                    'label' => "{$company->code} · Acme Tools",
+                    'details' => [
+                        'contact_name' => 'Current primary contact',
+                        'company' => 'Acme Tools',
+                        'email' => 'buyer@example.test',
+                        'phone' => '0912345678',
+                    ],
+                ],
+            ]]);
+    }
+
+    public function test_sales_cannot_fetch_contact_defaults_for_lead_linking(): void
+    {
+        $sales = User::factory()->create(['role' => UserRole::Sales, 'is_active' => true]);
+
+        $this->actingAs($sales)->getJson(route('leads.customer-options'))->assertForbidden();
+    }
+
     public function test_conversion_keeps_lead_unchanged_when_multiple_customers_match(): void
     {
         $sales = User::factory()->create(['role' => UserRole::Sales, 'is_active' => true]);
@@ -358,6 +443,119 @@ class OpportunityTest extends TestCase
             'requested_unit_price' => '1200.10',
             'estimated_value' => '3600.30',
         ]);
+    }
+
+    public function test_multi_product_lead_keeps_all_saved_lines_when_converted(): void
+    {
+        $this->withoutVite();
+        $admin = User::factory()->create(['role' => UserRole::Admin, 'is_active' => true]);
+        $sales = User::factory()->create(['role' => UserRole::Sales, 'is_active' => true]);
+        $customer = app(SaveCustomer::class)->handle(['name' => 'Existing buyer'], $sales);
+        $gloves = SapoProduct::create([
+            'sapo_product_id' => 100, 'sapo_variant_id' => 101, 'product_name' => 'Gloves',
+            'variant_name' => 'Size M', 'sku' => 'GT-M', 'unit_price' => '1200.10', 'synced_at' => now(),
+            'image_url' => 'https://catalog.example.test/gloves.jpg',
+        ]);
+        SapoProduct::create([
+            'sapo_product_id' => 200, 'sapo_variant_id' => 201, 'product_name' => 'Safety glasses',
+            'sku' => 'KG-01', 'unit_price' => '1800.25', 'synced_at' => now(),
+        ]);
+        $rows = [
+            ['key' => '101', 'quantity' => '3', 'unit_price' => '1200.10'],
+            ['key' => '201', 'quantity' => '2', 'unit_price' => '1800.25'],
+        ];
+        $details = [
+            'title' => 'PPE request',
+            'contact_name' => 'Buyer',
+            'email' => 'buyer@example.test',
+            'stage' => 'qualified',
+        ];
+
+        $this->actingAs($admin)->post(route('leads.store'), [
+            ...$details,
+            'customer_id' => $customer->id,
+            'estimated_value' => '1',
+            'products' => $rows,
+        ])->assertSessionHasNoErrors();
+        $lead = Lead::sole();
+        $this->assertSame('7200.80', $lead->estimated_value);
+        $this->assertSame(['Gloves · Size M', 'Safety glasses'], array_column($lead->products, 'name'));
+        $this->get(route('leads.index'))->assertInertia(fn ($page) => $page
+            ->where('productImages.101', 'https://catalog.example.test/gloves.jpg')
+            ->missing('productImages.201'));
+
+        $gloves->update(['product_name' => 'Updated catalog name', 'unit_price' => '5000']);
+        $this->actingAs($sales)->put(route('leads.update', $lead), [
+            ...$details,
+            'products' => $rows,
+        ])->assertSessionHasNoErrors();
+        $this->assertSame('Gloves · Size M', $lead->refresh()->products[0]['name']);
+        $this->assertSame('1200.10', $lead->products[0]['unit_price']);
+
+        $this->post(route('leads.convert', $lead), ['products' => [$rows[0]]])
+            ->assertSessionHasErrors('products');
+        $this->assertSame('lead', $lead->refresh()->kind);
+
+        $rows[1]['quantity'] = '4';
+        $rows[1]['unit_price'] = '2000.25';
+        $this->post(route('leads.convert', $lead), ['products' => $rows])->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('leads', [
+            'id' => $lead->id,
+            'kind' => 'opportunity',
+            'customer_id' => $customer->id,
+            'owner_id' => $sales->id,
+            'estimated_value' => '11601.30',
+        ]);
+        $this->assertDatabaseCount('customers', 1);
+
+        $this->get(route('opportunities.index'))->assertOk()->assertInertia(fn ($page) => $page
+            ->has('opportunities.data.0.products', 2)
+            ->where('opportunities.data.0.products.1', [
+                'key' => '201',
+                'sapo_product_id' => '200',
+                'name' => 'Safety glasses',
+                'sku' => 'KG-01',
+                'quantity' => '4.000',
+                'unit_price' => '2000.25',
+            ])
+            ->where('summary.open_value', '11601.3'));
+        $this->get(route('customers.show', $customer))->assertOk()->assertInertia(fn ($page) => $page
+            ->has('opportunities.0.products', 2)
+            ->where('opportunities.0.products.1.name', 'Safety glasses'));
+    }
+
+    public function test_product_lines_require_positive_integer_quantities(): void
+    {
+        $sales = User::factory()->create(['role' => UserRole::Sales, 'is_active' => true]);
+        SapoProduct::create([
+            'sapo_product_id' => 100, 'sapo_variant_id' => 101,
+            'product_name' => 'Gloves', 'unit_price' => '1200.10', 'synced_at' => now(),
+        ]);
+        $details = [
+            'title' => 'Quantity validation',
+            'contact_name' => 'Buyer',
+            'email' => 'buyer@example.test',
+            'stage' => 'qualified',
+        ];
+        $row = ['key' => '101', 'quantity' => '2', 'unit_price' => '1200.10'];
+
+        $this->actingAs($sales)->post(route('leads.store'), [
+            ...$details,
+            'products' => [[...$row, 'quantity' => '2.5']],
+        ])->assertSessionHasErrors('products.0.quantity');
+        $this->assertDatabaseCount('leads', 0);
+
+        $this->post(route('leads.store'), [...$details, 'products' => [$row]])->assertSessionHasNoErrors();
+        $lead = Lead::sole();
+        $this->put(route('leads.update', $lead), [
+            ...$details,
+            'products' => [[...$row, 'quantity' => '0']],
+        ])->assertSessionHasErrors('products.0.quantity');
+        $this->post(route('leads.convert', $lead), [
+            'products' => [[...$row, 'quantity' => '-1']],
+        ])->assertSessionHasErrors('products.0.quantity');
+        $this->assertSame('lead', $lead->refresh()->kind);
+        $this->assertSame('2.000', $lead->products[0]['quantity']);
     }
 
     public function test_editing_an_opportunity_from_leads_preserves_its_quoted_product_price(): void

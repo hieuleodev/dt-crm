@@ -28,7 +28,8 @@ interface TeamMember {
 interface Props extends PageProps {
     canAssign: boolean;
     filters: { assignee_id: number | null };
-    summary: { customers: number; leads: number; open: number; today: number; overdue: number; completedToday: number };
+    summary: { customers: number; leadRecords: number; open: number; today: number; overdue: number; completedToday: number };
+    leadListUrl: string | null;
     statusCounts: { status: string; label: string; total: number }[];
     upcomingTasks: TaskRow[];
     team: TeamMember[];
@@ -37,7 +38,7 @@ interface Props extends PageProps {
 }
 
 export default function Index() {
-    const { auth, canAssign, filters, summary, statusCounts, upcomingTasks, team, assignees, options } = usePage<Props>().props;
+    const { auth, canAssign, filters, summary, leadListUrl, statusCounts, upcomingTasks, team, assignees, options } = usePage<Props>().props;
     const [editor, setEditor] = useState<{ assigneeId?: number } | null>(null);
     const [filtering, setFiltering] = useState(false);
     // Dữ liệu nhiệm vụ gửi xuống đã được máy chủ lọc theo người xem.
@@ -51,7 +52,7 @@ export default function Index() {
     const percent = actionable ? Math.round(completed / actionable * 100) : 0;
     const metrics = [
         { key: "customers", label: canAssign ? "Khách hàng" : "Khách hàng phụ trách", value: summary.customers, icon: <TeamOutlined />, tone: "blue", href: "/customers" },
-        { key: "leads", label: canAssign ? "Lead" : "Lead phụ trách", value: summary.leads, icon: <SolutionOutlined />, tone: "blue", href: "/leads?kind=lead" },
+        { key: "leads", label: canAssign ? "Lead & Cơ hội" : "Lead & Cơ hội phụ trách", value: summary.leadRecords, icon: <SolutionOutlined />, tone: "blue", href: leadListUrl },
         { key: "open", label: canAssign ? "Việc chưa hoàn thành" : "Nhiệm vụ được giao", value: summary.open, icon: <UnorderedListOutlined />, tone: "neutral", href: taskUrl() },
         { key: "today", label: "Việc đến hạn hôm nay", value: summary.today, icon: <ClockCircleOutlined />, tone: "amber", href: taskUrl("today") },
         { key: "overdue", label: "Việc quá hạn", value: summary.overdue, icon: <WarningOutlined />, tone: "red", href: taskUrl("overdue") },

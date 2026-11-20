@@ -8,6 +8,7 @@ use App\Models\Lead;
 use App\Models\Task;
 use App\Models\User;
 use App\Services\Care\SaveTask;
+use App\Services\Customer\SaveCustomer;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -75,11 +76,93 @@ class DashboardTest extends TestCase
         Customer::create(['code' => 'DASH01', 'name' => 'Own customer', 'owner_id' => $first->id, 'created_by' => $first->id, 'lifecycle_stage' => 'prospect', 'status' => 'active']);
         Customer::create(['code' => 'DASH02', 'name' => 'Other customer', 'owner_id' => $second->id, 'created_by' => $second->id, 'lifecycle_stage' => 'prospect', 'status' => 'active']);
         Lead::forceCreate(['owner_id' => $second->id, 'title' => 'Private lead', 'contact_name' => 'Private contact']);
+        $ownOpportunity = Lead::forceCreate([
+            'owner_id' => $first->id,
+            'title' => 'Own opportunity',
+            'contact_name' => 'Buyer',
+            'kind' => 'opportunity',
+            'stage' => 'proposal',
+        ]);
+
         $this->actingAs($first)->get('/?assignee_id='.$second->id)->assertOk()->assertInertia(fn ($page) => $page
             ->where('canAssign', false)->where('filters.assignee_id', null)
-            ->where('summary.open', 1)->where('summary.customers', 1)->where('summary.leads', 0)
+            ->where('summary.open', 1)->where('summary.customers', 1)->where('summary.leadRecords', 1)
+            ->where('leadListUrl', '/leads')
             ->has('team', 0)->has('assignees', 1)->where('assignees.0.id', $first->id)
             ->has('upcomingTasks', 1)->where('upcomingTasks.0.id', $ownTask->id));
+
+        $this->get(route('leads.index', ['owner_id' => $second->id]))->assertOk()->assertInertia(fn ($page) => $page
+            ->where('filters.owner_id', null)
+            ->has('leads.data', 1)
+            ->where('leads.data.0.id', $ownOpportunity->id));
+    }
+
+    public function test_dashboard_opens_the_combined_list_when_only_opportunities_exist(): void
+    {
+        $admin = $this->user(UserRole::Admin);
+        $staff = $this->user();
+        $opportunity = Lead::forceCreate([
+            'owner_id' => $staff->id,
+            'title' => 'Closed opportunity',
+            'contact_name' => 'Buyer',
+            'kind' => 'opportunity',
+            'stage' => 'lost',
+        ]);
+
+        $dashboard = $this->actingAs($admin)->get(route('dashboard'))->assertOk()->assertInertia(fn ($page) => $page
+            ->where('summary.leadRecords', 1)
+            ->where('leadListUrl', '/leads'));
+
+        $this->get($dashboard->inertiaProps('leadListUrl'))->assertOk()->assertInertia(fn ($page) => $page
+            ->component('Leads/Index')
+            ->where('filters.kind', '')
+            ->where('summary.total', 1)
+            ->where('summary.leads', 0)
+            ->where('summary.opportunities', 1)
+            ->where('leads.data.0.id', $opportunity->id));
+    }
+
+    public function test_dashboard_passes_the_selected_owner_to_the_combined_list(): void
+    {
+        $admin = $this->user(UserRole::Admin);
+        $first = $this->user();
+        $second = $this->user();
+        Lead::forceCreate(['owner_id' => $first->id, 'title' => 'Assigned lead', 'contact_name' => 'Buyer']);
+        Lead::forceCreate([
+            'owner_id' => $first->id,
+            'title' => 'Assigned opportunity',
+            'contact_name' => 'Buyer',
+            'kind' => 'opportunity',
+            'stage' => 'proposal',
+        ]);
+        Lead::forceCreate(['owner_id' => $second->id, 'title' => 'Other lead', 'contact_name' => 'Buyer']);
+
+        $dashboard = $this->actingAs($admin)
+            ->get(route('dashboard', ['assignee_id' => $first->id]))
+            ->assertOk()->assertInertia(fn ($page) => $page
+            ->where('summary.leadRecords', 2)
+            ->where('leadListUrl', '/leads?owner_id='.$first->id));
+
+        $this->get($dashboard->inertiaProps('leadListUrl'))->assertOk()->assertInertia(fn ($page) => $page
+            ->where('filters.owner_id', $first->id)
+            ->where('selectedOwnerName', $first->name)
+            ->where('summary.total', 2)
+            ->where('summary.leads', 1)
+            ->where('summary.opportunities', 1)
+            ->has('leads.data', 2)
+            ->where('leads.data.0.owner_id', $first->id)
+            ->where('leads.data.1.owner_id', $first->id));
+
+        $this->get(route('leads.index'))->assertOk()->assertInertia(fn ($page) => $page
+            ->where('filters.owner_id', null)
+            ->where('summary.total', 3));
+    }
+
+    public function test_combined_list_rejects_an_invalid_owner_filter(): void
+    {
+        $this->actingAs($this->user(UserRole::Admin))
+            ->get(route('leads.index', ['owner_id' => 'invalid']))
+            ->assertSessionHasErrors('owner_id');
     }
 
     public function test_daily_totals_use_vietnam_midnight_and_exclude_finished_tasks(): void
@@ -209,6 +292,81 @@ class DashboardTest extends TestCase
         $this->assertDatabaseCount('care_tasks', 0);
     }
 
+    public function test_admin_can_assign_a_linked_lead_task_to_the_current_customer_owner(): void
+    {
+        $admin = $this->user(UserRole::Admin);
+        $previousOwner = $this->user();
+        $newOwner = $this->user();
+        $customer = app(SaveCustomer::class)->handle([
+            'name' => 'Existing customer',
+            'email' => 'buyer@example.test',
+        ], $previousOwner);
+        $leadData = [
+            'title' => 'Product follow-up',
+            'contact_name' => $customer->name,
+            'email' => $customer->email,
+            'stage' => 'new',
+        ];
+
+        $this->actingAs($admin)->post(route('leads.store'), $leadData)->assertSessionHasNoErrors();
+        $lead = Lead::sole();
+        $reference = ['reference' => 'lead:'.$lead->id];
+        $this->post(route('tasks.store'), $this->payload($previousOwner, $reference))
+            ->assertSessionHasErrors('assignee_id');
+
+        $this->put(route('leads.update', $lead), [...$leadData, 'customer_id' => $customer->id])
+            ->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('leads', [
+            'id' => $lead->id, 'owner_id' => $admin->id, 'customer_id' => $customer->id,
+        ]);
+
+        $this->post(route('customers.reassign', $customer), ['owner_id' => $newOwner->id])
+            ->assertSessionHasNoErrors();
+        $this->get(route('dashboard', ['assignee_id' => $newOwner->id]))->assertInertia(fn ($page) => $page
+            ->where('summary.leadRecords', 1));
+        $this->post(route('tasks.store'), $this->payload($previousOwner, $reference))
+            ->assertSessionHasErrors('assignee_id');
+        $this->post(route('tasks.store'), $this->payload($newOwner, $reference))->assertSessionHasNoErrors();
+        $this->assertDatabaseCount('care_tasks', 1);
+        $task = Task::sole();
+
+        $this->actingAs($newOwner)->get(route('leads.index'))->assertOk()->assertInertia(fn ($page) => $page
+            ->has('leads.data', 1)
+            ->where('leads.data.0.id', $lead->id)
+            ->where('leads.data.0.customer.id', $customer->id)
+            ->where('leads.data.0.customer.owner.id', $newOwner->id));
+        $this->get(route('tasks.index', ['lead_id' => $lead->id]))->assertOk()->assertInertia(fn ($page) => $page
+            ->has('tasks.data', 1)->where('tasks.data.0.id', $task->id));
+        $this->put(route('leads.update', $lead), [...$leadData, 'stage' => 'contacted'])->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('leads', ['id' => $lead->id, 'stage' => 'contacted', 'customer_id' => $customer->id]);
+        $this->actingAs($previousOwner)->put(route('leads.update', $lead), $leadData)->assertForbidden();
+    }
+
+    public function test_sales_cannot_change_the_linked_customer_of_a_lead(): void
+    {
+        $sales = $this->user();
+        $originalOwner = $this->user();
+        $customer = app(SaveCustomer::class)->handle(['name' => 'Assigned customer'], $sales);
+        $lead = Lead::forceCreate([
+            'owner_id' => $originalOwner->id,
+            'customer_id' => $customer->id,
+            'title' => 'Linked lead',
+            'contact_name' => 'Buyer',
+            'email' => 'buyer@example.test',
+        ]);
+
+        $this->actingAs($sales)->put(route('leads.update', $lead), [
+            ...$lead->only('title', 'contact_name', 'email'),
+            'stage' => 'contacted',
+            'customer_id' => null,
+        ])->assertSessionHasErrors('customer_id');
+
+        $this->assertDatabaseHas('leads', ['id' => $lead->id, 'stage' => 'new', 'customer_id' => $customer->id]);
+
+        $this->actingAs($originalOwner)->get(route('leads.index'))->assertInertia(fn ($page) => $page
+            ->has('leads.data', 0));
+    }
+
     public function test_staff_can_complete_their_assigned_task_and_update_dashboard_totals(): void
     {
         $staff = $this->user();
@@ -265,7 +423,7 @@ class DashboardTest extends TestCase
 
         $this->actingAs($sales)->get('/')->assertOk()->assertInertia(fn ($page) => $page
             ->where('summary.customers', 1)
-            ->where('summary.leads', 1)
+            ->where('summary.leadRecords', 1)
             ->where('summary.open', 1)
             ->has('upcomingTasks', 1));
     }

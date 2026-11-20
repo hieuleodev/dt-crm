@@ -1,4 +1,5 @@
 import type { Option } from "@/types";
+import type { LeadProduct } from "@/types/lead-product";
 
 export interface CustomerOptions {
     companyTypes: Option[];
@@ -129,9 +130,7 @@ export interface PlantItem {
 export interface CustomerOpportunityItem {
     id: number;
     title: string;
-    requested_product: string | null;
-    requested_quantity: string | null;
-    requested_unit_price: string | null;
+    products: LeadProduct[];
     contact_name: string;
     phone: string | null;
     email: string | null;
