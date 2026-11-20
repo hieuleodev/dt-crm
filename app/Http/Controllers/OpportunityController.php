@@ -108,9 +108,24 @@ class OpportunityController extends Controller
             ->withQueryString();
 
         $board = [];
+        $hiddenBoardCounts = [];
+        $closedStages = ['won', 'lost'];
+        $kanbanCutoff = CarbonImmutable::now('UTC')->subHours(24);
+
         foreach (array_keys(Lead::STAGES['opportunity']) as $stageKey) {
-            $board[$stageKey] = (clone $baseQuery)
-                ->where('stage', $stageKey)
+            $columnQuery = (clone $baseQuery)->where('stage', $stageKey);
+            $totalInStage = (int) ($byStage[$stageKey]['count'] ?? 0);
+
+            if (in_array($stageKey, $closedStages, true)) {
+                $visibleQuery = (clone $columnQuery)->where('updated_at', '>=', $kanbanCutoff);
+                $visibleCount = (clone $visibleQuery)->count();
+                $hiddenBoardCounts[$stageKey] = max(0, $totalInStage - $visibleCount);
+                $columnQuery = $visibleQuery;
+            } else {
+                $hiddenBoardCounts[$stageKey] = 0;
+            }
+
+            $board[$stageKey] = $columnQuery
                 ->with([
                     'owner:id,name',
                     'customer:id,code,name,phone,email',
@@ -139,6 +154,7 @@ class OpportunityController extends Controller
         return Inertia::render('Opportunities/Index', [
             'opportunities' => $opportunities,
             'board' => $board,
+            'hiddenBoardCounts' => $hiddenBoardCounts,
             'stageHistory' => $this->stageHistory(
                 collect($board)->flatten(1)->pluck('id')
                     ->merge($opportunities->getCollection()->pluck('id'))
