@@ -55,7 +55,9 @@ Mở file `.env` (tham khảo mẫu trong `.env.example`) và cấu hình theo n
 #### A. Chế độ chạy thử / phát triển (chưa cần tài khoản Zalo OA thật)
 
 ```env
-QUEUE_CONNECTION=database
+# Dùng 'sync' nếu muốn test gửi ngay trên máy local không cần mở terminal queue:work
+# Khi chạy thật trên server nên đổi lại thành 'database'
+QUEUE_CONNECTION=sync
 
 # Email: để 'log' nếu chỉ muốn xem nội dung email trong storage/logs/laravel.log
 # Hoặc chuyển sang 'smtp' để gửi email thật
@@ -70,12 +72,15 @@ ZALO_OA_SANDBOX=true
 ```env
 QUEUE_CONNECTION=database
 
-# 1. Cấu hình SMTP doanh nghiệp
+# 1. Cấu hình SMTP doanh nghiệp (hoặc Gmail App Password khi test)
 MAIL_MAILER=smtp
+# Lưu ý Laravel 13: dùng 'smtp' cho cổng 587 (STARTTLS) hoặc 'smtps' cho cổng 465 (SSL), KHÔNG dùng 'tls'
+MAIL_SCHEME=smtp
 MAIL_HOST=smtp.gmail.com
 MAIL_PORT=587
 MAIL_USERNAME=your-email@company.com
-MAIL_PASSWORD=your-app-password
+# Nếu dùng Gmail: bắt buộc tạo App Password 16 ký tự (bỏ dấu cách), không dùng mật khẩu đăng nhập thường
+MAIL_PASSWORD=your-16-char-app-password
 MAIL_FROM_ADDRESS="no-reply@company.com"
 MAIL_FROM_NAME="${APP_NAME}"
 
@@ -89,6 +94,19 @@ ZALO_OA_ID=your_oa_id
 # Tùy chọn dự phòng nếu chưa kết nối OAuth:
 ZALO_OA_ACCESS_TOKEN=
 ```
+
+> **Lưu ý sau khi chỉnh sửa `.env`:** luôn chạy `php artisan config:clear` để hệ thống nạp lại cấu hình mới.
+
+#### C. Hướng dẫn tạo Gmail App Password để gửi thử Email
+
+Nếu chưa có máy chủ email doanh nghiệp riêng, bạn có thể dùng một tài khoản Gmail bất kỳ làm tài khoản **người gửi** (mật khẩu đăng nhập Gmail chính không bị ảnh hưởng):
+
+1. Đăng nhập tài khoản Gmail dùng để gửi vào trang bảo mật Google: `https://myaccount.google.com/security`.
+2. Đảm bảo đã bật **Xác minh 2 bước (2-Step Verification)**.
+3. Truy cập trang tạo Mật khẩu ứng dụng: `https://myaccount.google.com/apppasswords` *(hoặc tìm từ khóa "Mật khẩu ứng dụng" / "App passwords" trong Google Account)*.
+4. Nhập tên gợi nhớ (ví dụ: `DT CRM`) → bấm **Tạo (Create)** → Google sẽ tự sinh chuỗi **16 ký tự**.
+5. Dán chuỗi 16 ký tự đó (**xóa hết dấu cách**) vào dòng `MAIL_PASSWORD` trong `.env`, điền `MAIL_USERNAME` và `MAIL_FROM_ADDRESS` bằng địa chỉ Gmail vừa tạo, đặt `MAIL_SCHEME=smtp`, `MAIL_HOST=smtp.gmail.com`, `MAIL_PORT=587`.
+6. Chạy `php artisan config:clear`, sau đó vào `/repurchase-reminders` để gửi thử Email Broadcast tới bất kỳ địa chỉ email người nhận nào đã gắn trên hồ sơ Khách hàng / Liên hệ. *(Sau khi test xong hoặc khi đổi sang SMTP công ty, có thể xóa App Password này tại trang Google Account bất kỳ lúc nào.)*
 
 ### Bước 3: Khởi chạy Queue Worker & Scheduler
 
