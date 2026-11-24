@@ -116,7 +116,7 @@ export default function SettingsIndex({ profile, users = [], company, masterData
     const { auth } = usePage<PageProps>().props;
     const isManager = auth.user?.role !== "sales";
     const isAdmin = auth.user?.role === "admin";
-    const [activeTab, setActiveTab] = useState("company");
+    const [activeTab, setActiveTab] = useState(isManager ? "company" : "profile");
 
     // ==========================================
     // 1. Quản lý Hồ sơ cá nhân & Đổi mật khẩu

@@ -136,6 +136,11 @@ class SettingController extends Controller
 
         abort_unless($user && $user->is_active, 403);
 
+        $email = $request->input('email');
+        if (is_string($email)) {
+            $request->merge(['email' => User::normalizeLoginEmail($email)]);
+        }
+
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'phone' => ['nullable', 'string', 'max:20'],

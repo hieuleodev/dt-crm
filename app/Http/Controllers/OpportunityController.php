@@ -32,12 +32,14 @@ class OpportunityController extends Controller
                 Rule::in(array_keys(Lead::STAGES['opportunity'])),
             ],
             'customer_id' => ['nullable', 'integer', 'min:1'],
+            'hide_old_closed' => ['nullable', 'boolean'],
             'page' => ['nullable', 'integer', 'min:1'],
         ]);
 
         $q = trim($filters['q'] ?? '');
         $stage = $filters['stage'] ?? '';
         $customerId = isset($filters['customer_id']) ? (int) $filters['customer_id'] : null;
+        $hideOldClosed = filter_var($filters['hide_old_closed'] ?? false, FILTER_VALIDATE_BOOLEAN);
 
         $baseQuery = Lead::query()
             ->visibleTo($user)
@@ -78,8 +80,17 @@ class OpportunityController extends Controller
             $weightedValue += ((float) $item->estimated_value) * ($prob / 100);
         }
 
+        $closedStages = ['won', 'lost'];
+        $kanbanCutoff = CarbonImmutable::now('UTC')->subHours(24);
+
         $filteredQuery = (clone $baseQuery)
-            ->when($stage !== '', fn ($query) => $query->where('stage', $stage));
+            ->when($stage !== '', fn ($query) => $query->where('stage', $stage))
+            ->when($hideOldClosed, function ($query) use ($closedStages, $kanbanCutoff) {
+                $query->where(function ($sub) use ($closedStages, $kanbanCutoff) {
+                    $sub->whereNotIn('stage', $closedStages)
+                        ->orWhere('updated_at', '>=', $kanbanCutoff);
+                });
+            });
 
         $summary = [
             'total' => (clone $filteredQuery)->count(),
@@ -109,8 +120,6 @@ class OpportunityController extends Controller
 
         $board = [];
         $hiddenBoardCounts = [];
-        $closedStages = ['won', 'lost'];
-        $kanbanCutoff = CarbonImmutable::now('UTC')->subHours(24);
 
         foreach (array_keys(Lead::STAGES['opportunity']) as $stageKey) {
             $columnQuery = (clone $baseQuery)->where('stage', $stageKey);
@@ -164,6 +173,7 @@ class OpportunityController extends Controller
                 'q' => $q,
                 'stage' => $stage,
                 'customer_id' => $customerId,
+                'hide_old_closed' => $hideOldClosed,
             ],
             'stages' => Lead::STAGES['opportunity'],
             'stageProbabilities' => Lead::STAGE_PROBABILITIES,

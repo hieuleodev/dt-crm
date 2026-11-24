@@ -32,6 +32,7 @@ class Contact extends Model
             'preferred_channel' => ContactChannel::class,
             'birthday' => 'date',
             'left_at' => 'date',
+            'zalo_followed_at' => 'datetime',
             'is_primary' => 'boolean',
             'marketing_opt_out' => 'boolean',
         ];

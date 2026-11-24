@@ -112,6 +112,7 @@ export interface ContactItem {
     phone: string | null;
     email: string | null;
     zalo: string | null;
+    zalo_user_id: string | null;
     preferred_channel: string | null;
     language: string | null;
     birthday: string | null;

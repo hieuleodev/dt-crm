@@ -6,6 +6,7 @@ use App\Enums\Staff\UserRole;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
@@ -91,6 +92,12 @@ class UserController extends Controller
 
         $newStatus = ! $user->is_active;
         $user->update(['is_active' => $newStatus]);
+
+        if (! $newStatus && config('session.driver') === 'database') {
+            DB::table(config('session.table', 'sessions'))
+                ->where('user_id', $user->id)
+                ->delete();
+        }
 
         $message = $newStatus ? 'Đã mở khóa tài khoản nhân viên.' : 'Đã khóa tài khoản nhân viên.';
 

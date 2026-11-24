@@ -849,5 +849,14 @@ class OpportunityTest extends TestCase
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->has('records.data', 2));
+
+        // Optional Table filter hide_old_closed=1 hides won/lost opportunities older than 24h in Table view as well
+        $this->actingAs($sales)
+            ->get(route('opportunities.index', ['hide_old_closed' => 1]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('filters.hide_old_closed', true)
+                ->has('opportunities.data', 1)
+                ->where('opportunities.data.0.id', $openOpp->id));
     }
 }

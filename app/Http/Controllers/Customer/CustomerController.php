@@ -171,7 +171,7 @@ class CustomerController extends Controller
             ],
             'contacts' => $customer->contacts->sortBy([['left_at', 'asc'], ['is_primary', 'desc'], ['full_name', 'asc']])->values()
                 ->map(fn ($c) => [
-                    ...$c->only('id', 'full_name', 'title', 'department', 'phone', 'email', 'zalo', 'language', 'is_primary', 'marketing_opt_out', 'notes', 'plant_id'),
+                    ...$c->only('id', 'full_name', 'title', 'department', 'phone', 'email', 'zalo', 'zalo_user_id', 'language', 'is_primary', 'marketing_opt_out', 'notes', 'plant_id'),
                     'buying_role' => $c->buying_role?->value,
                     'preferred_channel' => $c->preferred_channel?->value,
                     'birthday' => $c->birthday?->toDateString(),

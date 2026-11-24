@@ -31,10 +31,14 @@ import {
     ClockCircleOutlined,
     ExclamationCircleOutlined,
     HistoryOutlined,
+    MailOutlined,
+    MessageOutlined,
+    NotificationOutlined,
     PhoneOutlined,
     PlusCircleOutlined,
     RetweetOutlined,
     SearchOutlined,
+    SendOutlined,
     ShoppingCartOutlined,
     UserOutlined,
 } from "@ant-design/icons";
@@ -42,6 +46,12 @@ import dayjs from "dayjs";
 
 import AppLayout from "@/layouts/AppLayout";
 import PageHeader from "@/components/common/PageHeader";
+import BroadcastComposerModal, {
+    type BroadcastConfig,
+} from "@/components/broadcast/BroadcastComposerModal";
+import BroadcastHistoryModal, {
+    type BroadcastCampaignSummary,
+} from "@/components/broadcast/BroadcastHistoryModal";
 import type { PageProps } from "@/types";
 
 const { Text, Paragraph } = Typography;
@@ -78,6 +88,14 @@ export interface RepurchaseReminderItem {
     contact_name: string | null;
     phone: string | null;
     email: string | null;
+    zalo_user_id: string | null;
+    can_email_broadcast: boolean;
+    can_zalo_broadcast: boolean;
+    last_broadcast: {
+        campaign_name: string;
+        channel: string;
+        sent_at: string | null;
+    } | null;
     estimated_value: string;
     owner_id: number | null;
     owner_name: string;
@@ -115,6 +133,8 @@ interface Props extends PageProps {
         types: Record<string, string>;
         priorities: Record<string, string>;
     };
+    broadcastConfig: BroadcastConfig;
+    recentBroadcasts: BroadcastCampaignSummary[];
 }
 
 const money = new Intl.NumberFormat("vi-VN", {
@@ -129,6 +149,8 @@ export default function RepurchaseRemindersIndex({
     filters,
     assignees,
     taskOptions,
+    broadcastConfig,
+    recentBroadcasts,
 }: Props) {
     const { auth } = usePage<PageProps>().props;
     const isManager = auth.user?.role !== "sales";
@@ -138,6 +160,12 @@ export default function RepurchaseRemindersIndex({
         useState<RepurchaseReminderItem | null>(null);
     const [completingItem, setCompletingItem] =
         useState<RepurchaseReminderItem | null>(null);
+    const [selectedRowKeys, setSelectedRowKeys] = useState<number[]>([]);
+    const [broadcastTargets, setBroadcastTargets] = useState<
+        RepurchaseReminderItem[]
+    >([]);
+    const [broadcastOpen, setBroadcastOpen] = useState(false);
+    const [historyOpen, setHistoryOpen] = useState(false);
 
     const scheduleForm = useForm({
         title: "",
@@ -258,6 +286,16 @@ export default function RepurchaseRemindersIndex({
         );
     }
 
+    function openBroadcastModal(items: RepurchaseReminderItem[]) {
+        if (items.length === 0) return;
+        setBroadcastTargets(items);
+        setBroadcastOpen(true);
+    }
+
+    const selectedReminders = reminders.filter((item) =>
+        selectedRowKeys.includes(item.id),
+    );
+
     const columns: ColumnsType<RepurchaseReminderItem> = [
         {
             title: "Khách hàng & Đợt giao dịch",
@@ -319,6 +357,42 @@ export default function RepurchaseRemindersIndex({
                             </span>
                         )}
                         <span>Phụ trách: {record.owner_name}</span>
+                        {record.can_email_broadcast && (
+                            <Tag
+                                icon={<MailOutlined />}
+                                color="blue"
+                                style={{ margin: 0, fontSize: 11 }}
+                            >
+                                Email
+                            </Tag>
+                        )}
+                        {record.can_zalo_broadcast && (
+                            <Tag
+                                icon={<MessageOutlined />}
+                                color="geekblue"
+                                style={{ margin: 0, fontSize: 11 }}
+                            >
+                                Zalo OA
+                            </Tag>
+                        )}
+                        {record.last_broadcast && (
+                            <Tooltip
+                                title={`Đã gửi "${record.last_broadcast.campaign_name}" (${record.last_broadcast.channel === "zalo" ? "Zalo OA" : "Email"})`}
+                            >
+                                <Tag
+                                    icon={<NotificationOutlined />}
+                                    color="purple"
+                                    style={{ margin: 0, fontSize: 11 }}
+                                >
+                                    Đã Broadcast{" "}
+                                    {record.last_broadcast.sent_at
+                                        ? dayjs(
+                                              record.last_broadcast.sent_at,
+                                          ).format("DD/MM")
+                                        : ""}
+                                </Tag>
+                            </Tooltip>
+                        )}
                     </div>
                 </div>
             ),
@@ -544,7 +618,7 @@ export default function RepurchaseRemindersIndex({
             title: "Thao tác",
             key: "actions",
             align: "center",
-            width: 265,
+            width: 315,
             render: (_, record) => (
                 <div
                     style={{
@@ -555,6 +629,14 @@ export default function RepurchaseRemindersIndex({
                         whiteSpace: "nowrap",
                     }}
                 >
+                    <Tooltip title="Gửi Tin nhắn Broadcast (Zalo OA / Email) cho khách hàng này">
+                        <Button
+                            size="small"
+                            icon={<SendOutlined />}
+                            onClick={() => openBroadcastModal([record])}
+                        />
+                    </Tooltip>
+
                     <Tooltip title="Đặt lịch hẹn nhắc nhở tùy chỉnh vào danh sách Nhiệm vụ">
                         <Button
                             size="small"
@@ -671,6 +753,12 @@ export default function RepurchaseRemindersIndex({
                 subtitle="Theo dõi các đợt báo giá và đơn hàng mua bán thành công để nhắc khách hàng đặt mua lại sau 15–30 ngày, đồng bộ trực tiếp với Nhiệm vụ và Lịch sử chăm sóc."
                 extra={
                     <Space>
+                        <Button
+                            icon={<NotificationOutlined />}
+                            onClick={() => setHistoryOpen(true)}
+                        >
+                            Lịch sử Broadcast ({recentBroadcasts.length})
+                        </Button>
                         <Button
                             icon={<HistoryOutlined />}
                             onClick={() =>
@@ -851,11 +939,70 @@ export default function RepurchaseRemindersIndex({
                         onChange={(key) => applyFilter({ bucket: key })}
                     />
 
+                    {selectedReminders.length > 0 && (
+                        <Alert
+                            type="info"
+                            showIcon
+                            style={{ marginBottom: 12 }}
+                            message={
+                                <div
+                                    style={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "space-between",
+                                        flexWrap: "wrap",
+                                        gap: 8,
+                                    }}
+                                >
+                                    <span>
+                                        Đã chọn{" "}
+                                        <strong>
+                                            {selectedReminders.length}
+                                        </strong>{" "}
+                                        đợt giao dịch để gửi Tin nhắn Broadcast
+                                        đa bài viết (Zalo OA / Email).
+                                    </span>
+                                    <Space>
+                                        <Button
+                                            size="small"
+                                            onClick={() =>
+                                                setSelectedRowKeys([])
+                                            }
+                                        >
+                                            Bỏ chọn
+                                        </Button>
+                                        <Button
+                                            type="primary"
+                                            size="small"
+                                            icon={<SendOutlined />}
+                                            style={{
+                                                backgroundColor: "#c8102e",
+                                            }}
+                                            onClick={() =>
+                                                openBroadcastModal(
+                                                    selectedReminders,
+                                                )
+                                            }
+                                        >
+                                            Gửi Broadcast (
+                                            {selectedReminders.length})
+                                        </Button>
+                                    </Space>
+                                </div>
+                            }
+                        />
+                    )}
+
                     <Table<RepurchaseReminderItem>
                         rowKey="id"
+                        rowSelection={{
+                            selectedRowKeys,
+                            onChange: (keys) =>
+                                setSelectedRowKeys(keys as number[]),
+                        }}
                         columns={columns}
                         dataSource={reminders}
-                        scroll={{ x: 1080 }}
+                        scroll={{ x: 1140 }}
                         pagination={{
                             pageSize: 15,
                             showSizeChanger: true,
@@ -1248,6 +1395,23 @@ export default function RepurchaseRemindersIndex({
                     </div>
                 </Form>
             </Modal>
+            {/* Modal 3: Soạn & gửi Tin nhắn Broadcast đa bài viết */}
+            <BroadcastComposerModal
+                open={broadcastOpen}
+                onClose={() => {
+                    setBroadcastOpen(false);
+                    setSelectedRowKeys([]);
+                }}
+                targets={broadcastTargets}
+                config={broadcastConfig}
+            />
+
+            {/* Modal 4: Lịch sử chiến dịch Broadcast */}
+            <BroadcastHistoryModal
+                open={historyOpen}
+                onClose={() => setHistoryOpen(false)}
+                campaigns={recentBroadcasts}
+            />
         </AppLayout>
     );
 }
