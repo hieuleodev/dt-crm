@@ -114,7 +114,7 @@ class RepurchaseReminderTest extends TestCase
         );
     }
 
-    public function test_can_schedule_repurchase_reminder_task(): void
+    public function test_employee_scheduled_reminder_is_visible_on_the_admin_calendar_with_the_employee_name(): void
     {
         $sales = $this->user(UserRole::Sales);
         $customer = $this->customer($sales);
@@ -138,6 +138,19 @@ class RepurchaseReminderTest extends TestCase
             'title' => 'Nhắc mua lại găng tay chống tĩnh điện',
             'status' => 'pending',
         ]);
+
+        $admin = $this->user(UserRole::Admin);
+        $task = Task::query()->where('title', 'Nhắc mua lại găng tay chống tĩnh điện')->sole();
+        $this->actingAs($admin)->getJson(route('calendar.index', [
+            'date' => now()->addDay()->format('Y-m-d'), 'view' => 'day',
+        ]))->assertOk()
+            ->assertJsonPath('tasks.0.id', $task->id)
+            ->assertJsonPath('tasks.0.assignee_id', $sales->id)
+            ->assertJsonPath('tasks.0.assignee', $sales->name);
+        $this->get(route('history.index', ['actor_id' => $sales->id]))->assertOk()->assertInertia(fn ($page) => $page
+            ->where('activity.data.0.actor', $sales->name)
+            ->where('activity.data.0.subject', $task->title)
+            ->where('activity.data.0.action', 'Tạo mới'));
     }
 
     public function test_completing_repurchase_reminder_syncs_with_history_and_creates_repeat_opportunity(): void

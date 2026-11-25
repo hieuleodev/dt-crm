@@ -265,7 +265,7 @@ export default function WeekView({
                                                     e.stopPropagation();
                                                     onSelectTask(task);
                                                 }}
-                                                title={`${due.format("HH:mm")} · ${task.title}`}
+                                                title={`${due.format("HH:mm")} · ${task.title} · ${task.assignee}`}
                                             >
                                                 <div
                                                     className="crm-cal-week__event-time"
@@ -275,6 +275,9 @@ export default function WeekView({
                                                 </div>
                                                 <div className="crm-cal-week__event-title">
                                                     {task.title}
+                                                </div>
+                                                <div className="crm-cal-week__event-ref">
+                                                    Phụ trách: {task.assignee}
                                                 </div>
                                                 {task.reference && (
                                                     <div className="crm-cal-week__event-ref">

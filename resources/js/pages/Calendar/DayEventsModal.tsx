@@ -176,6 +176,9 @@ export default function DayEventsModal({
                                                 }}
                                             >
                                                 {task.title}
+                                                <Typography.Text type="secondary" style={{ display: "block", fontSize: 12 }}>
+                                                    Phụ trách: {task.assignee}
+                                                </Typography.Text>
                                             </span>
                                             <Tag color={isCompleted ? "green" : "blue"} style={{ margin: 0 }}>
                                                 {options.statuses[task.status]}

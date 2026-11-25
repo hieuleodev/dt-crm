@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Jobs\SyncSapoProductCatalog;
 use App\Models\SapoProduct;
 use App\Models\User;
+use App\Services\LeadProducts;
 use App\Services\Sapo\SapoProductCatalog;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -18,7 +19,7 @@ class SapoProductController extends Controller
     /**
      * Tìm trong danh mục đã lưu ở CRM để Lead có thể tra theo tên sản phẩm, biến thể hoặc SKU.
      */
-    public function index(Request $request): JsonResponse
+    public function index(Request $request, LeadProducts $leadProducts): JsonResponse
     {
         $filters = $request->validate([
             'q' => ['nullable', 'string', 'max:120'],
@@ -54,6 +55,7 @@ class SapoProductController extends Controller
             'data' => $products->map(fn (SapoProduct $product) => [
                 'sapo_product_id' => (string) $product->sapo_product_id,
                 'sapo_variant_id' => (string) $product->sapo_variant_id,
+                'name' => $leadProducts->fromCatalog($product)['name'],
                 'product_name' => $product->product_name,
                 'variant_name' => $product->variant_name,
                 'sku' => $product->sku,

@@ -1427,6 +1427,10 @@ button.crm-workbench__metric:not(:disabled):active {
     align-self: center;
 }
 
+.leads-products__editable-name {
+    grid-column: 1 / -1;
+}
+
 .leads-products__thumbnail {
     display: grid;
     place-items: center;
@@ -2119,6 +2123,15 @@ button.crm-workbench__metric:not(:disabled):active {
 .crm-cal-chip--completed {
     opacity: 0.65;
     text-decoration: line-through;
+}
+
+.crm-cal-chip__assignee {
+    flex-shrink: 0;
+    max-width: 45%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--crm-text-muted);
+    font-size: 10px;
 }
 
 .crm-cal-chip--overdue {

@@ -91,6 +91,7 @@ class UpcomingEventsService
         // 1. Ngày kỷ niệm thành lập của các công ty khách hàng
         $customers = Customer::query()
             ->visibleTo($user)
+            ->when(! $user->isManager(), fn ($query) => $query->where('owner_id', $user->id))
             ->whereNotNull('founded_date')
             ->where('status', 'active')
             ->with('owner:id,name')
@@ -224,6 +225,7 @@ class UpcomingEventsService
         // 1. Ngày kỷ niệm thành lập công ty khách hàng
         $customers = Customer::query()
             ->visibleTo($user)
+            ->when(! $user->isManager(), fn ($query) => $query->where('owner_id', $user->id))
             ->whereNotNull('founded_date')
             ->where('status', 'active')
             ->with('owner:id,name')

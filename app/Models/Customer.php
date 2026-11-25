@@ -102,7 +102,7 @@ class Customer extends Model
 
     public function scopeVisibleTo(Builder $query, User $user): Builder
     {
-        return $user->isManager() ? $query : $query->where('owner_id', $user->id);
+        return $user->is_active ? $query : $query->whereRaw('1 = 0');
     }
 
     public static function normalizePhone(?string $value): ?string

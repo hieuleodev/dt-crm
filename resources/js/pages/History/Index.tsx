@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { Head, Link, router, usePage } from "@inertiajs/react";
+import { Head, Link, router, usePage, usePoll } from "@inertiajs/react";
 import {
     Alert,
     Button,
     Card,
     DatePicker,
     Empty,
+    Select,
     Space,
     Statistic,
     Table,
@@ -54,6 +55,17 @@ interface HistoryRecord {
     url: string;
 }
 
+interface ActivityRecord {
+    id: number;
+    actor: string;
+    actor_id: number | null;
+    action: string;
+    subject_type: string;
+    subject: string;
+    changed_fields: string[];
+    at: string | null;
+}
+
 interface Props extends PageProps {
     records: {
         data: HistoryRecord[];
@@ -65,7 +77,15 @@ interface Props extends PageProps {
         type: HistoryType;
         from: string | null;
         to: string | null;
+        actor_id: number | null;
     };
+    activity: {
+        data: ActivityRecord[];
+        current_page: number;
+        per_page: number;
+        total: number;
+    } | null;
+    actors: { id: number; name: string }[];
     summary: {
         successful: number;
         failed: number;
@@ -94,7 +114,10 @@ const money = new Intl.NumberFormat("vi-VN", {
 });
 
 export default function Index() {
-    const { records, filters, summary } = usePage<Props>().props;
+    const { records, filters, summary, activity, actors } = usePage<Props>().props;
+    usePoll(30_000, { only: ["activity", "records", "summary", "actors"] }, {
+        autoStart: Boolean(activity), background: "pause",
+    });
     const [range, setRange] = useState<DateRange>([
         filters.from ? dayjs(filters.from) : null,
         filters.to ? dayjs(filters.to) : null,
@@ -106,14 +129,22 @@ export default function Index() {
         page?: number;
         from?: string | null;
         to?: string | null;
+        actor_id?: number | null;
+        activity_page?: number;
     }) {
         const nextType = params.type ?? filters.type;
         const from = params.from === undefined ? filters.from : params.from;
         const to = params.to === undefined ? filters.to : params.to;
+        const actorId = params.actor_id === undefined ? filters.actor_id : params.actor_id;
         const query: Record<string, string | number> = {
             type: nextType,
             page: params.page ?? 1,
+            activity_page: params.activity_page ?? 1,
         };
+
+        if (actorId) {
+            query.actor_id = actorId;
+        }
 
         if (from) {
             query.from = from;
@@ -220,6 +251,25 @@ export default function Index() {
             key: "closed_at",
             width: 180,
             render: (value: string | null) => dateTime(value),
+        },
+    ];
+
+    const activityColumns: TableColumnsType<ActivityRecord> = [
+        { title: "Thời gian", dataIndex: "at", width: 180, render: dateTime },
+        { title: "Người thao tác", dataIndex: "actor", width: 180 },
+        { title: "Thao tác", dataIndex: "action", width: 110 },
+        {
+            title: "Hồ sơ liên quan", key: "subject", width: 300,
+            render: (_, record) => (
+                <div className="crm-history__record">
+                    <Typography.Text strong>{record.subject}</Typography.Text>
+                    <Typography.Text type="secondary">{record.subject_type}</Typography.Text>
+                </div>
+            ),
+        },
+        {
+            title: "Thông tin thay đổi", dataIndex: "changed_fields", width: 280,
+            render: (fields: string[]) => fields.join(", ") || "Thông tin hồ sơ",
         },
     ];
 
@@ -393,6 +443,33 @@ export default function Index() {
                             />
                         )}
                 </Card>
+                {activity && (
+                    <Card title="Nhật ký thao tác" extra={
+                        <Select
+                            aria-label="Lọc nhật ký theo nhân viên"
+                            placeholder="Tất cả người thao tác"
+                            allowClear showSearch={{ optionFilterProp: "label" }}
+                            style={{ minWidth: 220 }}
+                            value={filters.actor_id ?? undefined}
+                            options={actors.map((actor) => ({ value: actor.id, label: actor.name }))}
+                            onChange={(actorId) => visit({ actor_id: actorId ?? null })}
+                        />
+                    }>
+                        <Typography.Paragraph type="secondary">
+                            Theo dõi người tạo, cập nhật hoặc xóa khách hàng, Lead, cơ hội và lịch chăm sóc trong khoảng thời gian đã chọn.
+                        </Typography.Paragraph>
+                        <Table<ActivityRecord>
+                            rowKey="id" columns={activityColumns} dataSource={activity.data}
+                            loading={loading} scroll={{ x: 1050 }}
+                            locale={{ emptyText: "Chưa có thao tác trong khoảng thời gian này." }}
+                            pagination={{
+                                current: activity.current_page, pageSize: activity.per_page,
+                                total: activity.total, showSizeChanger: false,
+                                onChange: (page) => visit({ activity_page: page }),
+                            }}
+                        />
+                    </Card>
+                )}
             </div>
         </AppLayout>
     );

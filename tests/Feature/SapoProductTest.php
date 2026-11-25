@@ -101,6 +101,8 @@ class SapoProductTest extends TestCase
             ->getJson('/sapo/products?q=MU-TRANG')
             ->assertOk()
             ->assertJsonPath('data.0.sapo_variant_id', '200')
+            ->assertJsonPath('data.0.name', 'Mũ bảo hộ · Màu trắng')
+            ->assertJsonPath('data.0.unit_price', '125000.00')
             ->assertJsonPath('data.0.label', 'Mũ bảo hộ · Màu trắng · SKU MU-TRANG')
             ->assertJsonPath('data.0.product_type', 'Bảo vệ đầu')
             ->assertJsonPath('data.0.vendor', 'D&T')

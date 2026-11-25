@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Head, Link, router, usePage } from "@inertiajs/react";
+import { Head, Link, router, usePage, usePoll } from "@inertiajs/react";
 import {
     Alert,
     Button,
@@ -80,6 +80,9 @@ export default function Index() {
 
     // Chỉ quản lý sửa nội dung; Sales cập nhật trạng thái qua thao tác riêng.
     const isManager = auth.user?.role !== "sales";
+    usePoll(30_000, { only: ["tasks", "summary"] }, {
+        autoStart: isManager, background: "pause",
+    });
 
     const [q, setQ] = useState(filters.q ?? "");
     const [loading, setLoading] = useState(false);

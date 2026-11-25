@@ -98,7 +98,8 @@ class CustomerTest extends TestCase
             ->where('customer.successful_orders_count', 1));
         $this->actingAs($manager)->get(route('customers.show', $customer))->assertOk()->assertInertia(fn ($page) => $page
             ->where('taskHistory.total', 3));
-        $this->actingAs($other)->get(route('customers.show', $customer))->assertForbidden();
+        $this->actingAs($other)->get(route('customers.show', $customer))->assertOk()->assertInertia(fn ($page) => $page
+            ->where('taskHistory.total', 1));
     }
 
     public function test_customer_task_history_has_a_second_page_and_handles_missing_founded_date(): void
@@ -118,7 +119,7 @@ class CustomerTest extends TestCase
             ->where('taskHistory.data.0.title', 'Chăm sóc 1'));
     }
 
-    public function test_purchase_classification_filter_returns_each_group_without_exposing_other_sales_customers(): void
+    public function test_purchase_classification_filter_includes_customers_from_all_sales(): void
     {
         $sale = $this->user(UserRole::Sales);
         $noOrders = $this->customer($sale, ['name' => 'Chưa mua']);
@@ -135,12 +136,14 @@ class CustomerTest extends TestCase
             ->where('customers.total', 1)->where('customers.data.0.id', $noOrders->id));
         $this->get('/customers?purchase_classification=potential')->assertOk()->assertInertia(fn ($page) => $page
             ->where('filters.purchase_classification', 'potential')
-            ->where('customers.total', 1)->where('customers.data.0.id', $potential->id));
+            ->where('customers.total', 2)
+            ->where('customers.data.0.id', $other->id)
+            ->where('customers.data.1.id', $potential->id));
         $this->get('/customers?purchase_classification=returning')->assertOk()->assertInertia(fn ($page) => $page
             ->where('customers.total', 1)->where('customers.data.0.id', $returning->id));
         $this->get('/customers?purchase_classification=potential&q=KhongTonTai')->assertOk()->assertInertia(fn ($page) => $page
             ->where('customers.total', 0));
-        $this->get('/customers')->assertOk()->assertInertia(fn ($page) => $page->where('customers.total', 3));
+        $this->get('/customers')->assertOk()->assertInertia(fn ($page) => $page->where('customers.total', 4));
         $this->get('/customers?purchase_classification=invalid')->assertRedirect()->assertSessionHasErrors('purchase_classification');
     }
 
@@ -149,7 +152,7 @@ class CustomerTest extends TestCase
         $this->get('/customers')->assertRedirect('/login');
     }
 
-    public function test_sales_only_sees_and_opens_own_customers(): void
+    public function test_sales_sees_and_opens_shared_customers_but_can_only_edit_own_customers(): void
     {
         $sale1 = $this->user(UserRole::Sales);
         $sale2 = $this->user(UserRole::Sales);
@@ -157,10 +160,44 @@ class CustomerTest extends TestCase
         $other = $this->customer($sale2, ['name' => 'Khách người khác']);
 
         $this->actingAs($sale1)->get('/customers')
-            ->assertInertia(fn ($page) => $page->component('Customers/Index')->where('customers.total', 1)->where('customers.data.0.id', $mine->id));
-        $this->actingAs($sale1)->get("/customers/{$other->id}")->assertForbidden();
+            ->assertInertia(fn ($page) => $page->component('Customers/Index')
+                ->where('customers.total', 2)->where('stats.total', 2)
+                ->where('customers.data.0.id', $other->id)->where('customers.data.1.id', $mine->id));
+        $this->actingAs($sale1)->get("/customers/{$other->id}")->assertOk()->assertInertia(fn ($page) => $page
+            ->where('customer.id', $other->id)->where('can.update', false));
         $this->actingAs($sale1)->put("/customers/{$other->id}", ['name' => 'Đổi tên', 'lifecycle_stage' => 'prospect', 'status' => 'active'])->assertForbidden();
         $this->actingAs($sale1)->delete("/customers/{$mine->id}")->assertForbidden(); // nhân viên không được xóa
+    }
+
+    public function test_admin_customer_updates_are_visible_to_all_staff_in_the_shared_directory_and_selectors(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin, 'is_active' => true]);
+        $sales = User::factory()->create(['role' => UserRole::Sales, 'is_active' => true]);
+        $customer = $this->customer($admin, ['name' => 'Khách hàng dùng chung', 'email' => 'shared@example.test']);
+        $unassigned = $this->customer($admin, ['name' => 'Khách chưa phân công']);
+        $unassigned->update(['owner_id' => null]);
+
+        $this->actingAs($sales)->get(route('customers.index'))->assertOk()->assertInertia(fn ($page) => $page
+            ->where('customers.total', 2)->where('stats.total', 2)
+            ->where('customers.data.0.id', $unassigned->id)
+            ->where('customers.data.1.id', $customer->id));
+        $this->get(route('customers.show', $customer))->assertOk()->assertInertia(fn ($page) => $page
+            ->where('customer.email', 'shared@example.test')->where('can.update', false));
+        $this->get(route('opportunities.index'))->assertOk()->assertInertia(fn ($page) => $page
+            ->has('customers', 2));
+        $this->getJson(route('tasks.references', ['q' => 'Khách hàng dùng chung']))
+            ->assertOk()->assertJsonPath('options.0.value', "customer:{$customer->id}");
+
+        $this->actingAs($admin)->put(route('customers.update', $customer), [
+            'name' => 'Khách hàng đã cập nhật', 'email' => 'updated@example.test',
+            'lifecycle_stage' => 'prospect', 'status' => 'active',
+        ])->assertSessionHasNoErrors();
+
+        $this->actingAs($sales)->get(route('customers.index', ['q' => 'updated@example.test']))
+            ->assertOk()->assertInertia(fn ($page) => $page
+            ->where('customers.total', 1)->where('customers.data.0.id', $customer->id)
+            ->where('customers.data.0.name', 'Khách hàng đã cập nhật'));
+        $this->assertDatabaseCount('customers', 2);
     }
 
     public function test_sales_cannot_create_task_reminders_from_customer_notes(): void

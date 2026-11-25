@@ -86,7 +86,7 @@ class DashboardTest extends TestCase
 
         $this->actingAs($first)->get('/?assignee_id='.$second->id)->assertOk()->assertInertia(fn ($page) => $page
             ->where('canAssign', false)->where('filters.assignee_id', null)
-            ->where('summary.open', 1)->where('summary.customers', 1)->where('summary.leadRecords', 1)
+            ->where('summary.open', 1)->where('summary.customers', 2)->where('summary.leadRecords', 1)
             ->where('leadListUrl', '/leads')
             ->has('team', 0)->has('assignees', 1)->where('assignees.0.id', $first->id)
             ->has('upcomingTasks', 1)->where('upcomingTasks.0.id', $ownTask->id));
@@ -280,7 +280,7 @@ class DashboardTest extends TestCase
         $this->assertSame('pending', $otherTask->fresh()->status);
     }
 
-    public function test_assignment_rejects_inactive_staff_and_inaccessible_customer_records(): void
+    public function test_assignment_rejects_inactive_staff_and_accepts_shared_customer_records(): void
     {
         $admin = $this->user(UserRole::Admin);
         $first = $this->user();
@@ -288,8 +288,9 @@ class DashboardTest extends TestCase
         $inactive = $this->user(UserRole::Sales, false);
         $this->actingAs($admin)->post('/tasks', $this->payload($inactive))->assertSessionHasErrors('assignee_id');
         $customer = Customer::create(['code' => 'DASH03', 'name' => 'Restricted customer', 'owner_id' => $second->id, 'created_by' => $admin->id, 'lifecycle_stage' => 'prospect', 'status' => 'active']);
-        $this->post('/tasks', $this->payload($first, ['reference' => 'customer:'.$customer->id]))->assertSessionHasErrors('assignee_id');
-        $this->assertDatabaseCount('care_tasks', 0);
+        $this->post('/tasks', $this->payload($first, ['reference' => 'customer:'.$customer->id]))->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('care_tasks', ['customer_id' => $customer->id, 'assignee_id' => $first->id]);
+        $this->assertDatabaseCount('care_tasks', 1);
     }
 
     public function test_admin_can_assign_a_linked_lead_task_to_the_current_customer_owner(): void

@@ -79,6 +79,7 @@ interface LeadForm {
 
 interface SapoProductOption {
     sapo_variant_id: string;
+    name: string;
     unit_price: string;
     sku: string | null;
     image_url: string | null;
@@ -95,8 +96,8 @@ interface ProductDraft {
     unit_price: string;
 }
 
-function productPayload({ key, quantity, unit_price }: ProductDraft) {
-    return { key, quantity, unit_price };
+function productPayload({ key, name, quantity, unit_price }: ProductDraft) {
+    return { key, name, quantity, unit_price };
 }
 
 function ProductThumbnail({ imageUrl }: { imageUrl: string | null }) {
@@ -614,7 +615,7 @@ export default function Index({
                 {errors.products && <Alert type="error" title={errors.products} showIcon />}
                 {!rows.length && <Typography.Text type="secondary">Chưa có sản phẩm.</Typography.Text>}
                 {rows.map((row, index) => {
-                    const error = (field: "key" | "quantity" | "unit_price") => errors[`products.${index}.${field}`];
+                    const error = (field: "key" | "name" | "quantity" | "unit_price") => errors[`products.${index}.${field}`];
                     const quantityError = error("quantity") ?? (row.quantity && !validQuantity(row.quantity)
                         ? "Nhập số nguyên dương từ 1 đến 1.000.000."
                         : undefined);
@@ -646,14 +647,16 @@ export default function Index({
                                                 placeholder="Tìm tên hoặc SKU từ Sapo"
                                                 notFoundContent={productSearch.trim().length < 2
                                                     ? "Nhập ít nhất 2 ký tự để tìm sản phẩm."
-                                                    : "Không có sản phẩm khớp từ khóa."}
+                                                    : productsLastSyncedAt
+                                                        ? "Không có sản phẩm khớp từ khóa."
+                                                        : "Chưa có danh mục Sapo. Nhờ quản lý kết nối và đồng bộ sản phẩm trước."}
                                                 options={rowOptions}
                                                 onOpenChange={(open) => { if (!open) setProductSearch(""); }}
                                                 onChange={(key) => {
                                                     if (key === row.key) return;
                                                     const product = productOptions.find((option) => option.sapo_variant_id === key);
                                                     if (product) changeRow(row, {
-                                                        key, name: product.label, sku: product.sku, unit_price: product.unit_price,
+                                                        key, name: product.name, sku: product.sku, unit_price: product.unit_price,
                                                         imageUrl: product.image_url,
                                                     });
                                                     setProductSearch("");
@@ -671,6 +674,15 @@ export default function Index({
                                     </>
                                 )}
                             </div>
+                            {row.key && (
+                                <Form.Item className="leads-products__editable-name" label="Tên sản phẩm trên hồ sơ"
+                                    htmlFor={`lead-product-name-${row.id}`}
+                                    validateStatus={error("name") ? "error" : undefined} help={error("name")}>
+                                    <Input id={`lead-product-name-${row.id}`} value={row.name} maxLength={180}
+                                        placeholder="Có thể chỉnh tên sản phẩm cho hồ sơ này"
+                                        onChange={(event) => changeRow(row, { name: event.target.value })} />
+                                </Form.Item>
+                            )}
                             <Form.Item label="Số lượng" htmlFor={`lead-quantity-${row.id}`}
                                 validateStatus={quantityError ? "error" : undefined} help={quantityError}>
                                 <Input id={`lead-quantity-${row.id}`} type="number" inputMode="numeric" min={1} max={1000000}

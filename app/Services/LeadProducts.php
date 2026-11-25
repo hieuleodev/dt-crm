@@ -15,8 +15,9 @@ class LeadProducts
     {
         return [
             'products' => [$required ? 'present' : 'sometimes', 'array', 'list', 'max:50'],
-            'products.*' => ['required', 'array:key,quantity,unit_price'],
+            'products.*' => ['required', 'array:key,name,quantity,unit_price'],
             'products.*.key' => ['required', 'string', 'regex:/\A(?:legacy|[1-9][0-9]{0,19})\z/', 'distinct:strict'],
+            'products.*.name' => ['sometimes', 'required', 'string', 'max:180'],
             'products.*.quantity' => ['required', 'integer', 'min:1', 'max:1000000'],
             'products.*.unit_price' => ['required', 'numeric', 'min:0', 'max:9999999999999.99', 'decimal:0,2'],
         ];
@@ -30,6 +31,9 @@ class LeadProducts
             'products.max' => 'Mỗi Lead có thể lưu tối đa 50 dòng sản phẩm.',
             'products.*.key.required' => 'Vui lòng chọn sản phẩm.',
             'products.*.key.distinct' => 'Sản phẩm này đã có trên một dòng khác.',
+            'products.*.name.required' => 'Vui lòng nhập tên sản phẩm.',
+            'products.*.name.string' => 'Tên sản phẩm không đúng định dạng.',
+            'products.*.name.max' => 'Tên sản phẩm không được vượt quá 180 ký tự.',
             'products.*.quantity.*' => 'Số lượng phải là số nguyên dương từ 1 đến 1.000.000.',
             'products.*.unit_price.*' => 'Đơn giá từ 0 đến 9.999.999.999.999,99 ₫ và có tối đa 2 chữ số thập phân.',
         ];
@@ -38,7 +42,7 @@ class LeadProducts
     /**
      * Giữ tên, SKU và giá từng dòng trên hồ sơ khi danh mục Sapo thay đổi.
      *
-     * @param  list<array{key: string, quantity: string|int|float, unit_price: string|int|float}>  $rows
+     * @param  list<array{key: string, name?: string, quantity: string|int|float, unit_price: string|int|float}>  $rows
      * @return array<string, mixed>
      */
     public function selection(?Lead $lead, array $rows): array
@@ -71,7 +75,7 @@ class LeadProducts
     /**
      * Chỉ chốt giá cho đúng các dòng đã lưu. Kiểm tra sau khi đã khóa Lead để tránh ghi theo form cũ.
      *
-     * @param  list<array{key: string, quantity: string|int|float, unit_price: string|int|float}>  $rows
+     * @param  list<array{key: string, name?: string, quantity: string|int|float, unit_price: string|int|float}>  $rows
      * @return array<string, mixed>
      */
     public function quote(Lead $lead, array $rows): array
@@ -107,13 +111,14 @@ class LeadProducts
 
     /**
      * @param  array<string, mixed>  $product
-     * @param  array{quantity: string|int|float, unit_price: string|int|float}  $row
+     * @param  array{name?: string, quantity: string|int|float, unit_price: string|int|float}  $row
      * @return array<string, mixed>
      */
     private function pricedLine(array $product, array $row): array
     {
         return [
             ...$product,
+            'name' => $row['name'] ?? $product['name'],
             'quantity' => (string) BigDecimal::of($row['quantity'])->toScale(3),
             'unit_price' => (string) BigDecimal::of($row['unit_price'])->toScale(2),
         ];

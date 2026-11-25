@@ -9,12 +9,12 @@ class CustomerPolicy
 {
     public function viewAny(User $user): bool
     {
-        return true;
+        return $user->is_active;
     }
 
     public function view(User $user, Customer $customer): bool
     {
-        return $user->isManager() || $customer->owner_id === $user->id;
+        return $user->is_active;
     }
 
     public function create(User $user): bool
@@ -24,7 +24,7 @@ class CustomerPolicy
 
     public function update(User $user, Customer $customer): bool
     {
-        return $this->view($user, $customer);
+        return $user->is_active && ($user->isManager() || $customer->owner_id === $user->id);
     }
 
     public function delete(User $user, Customer $customer): bool

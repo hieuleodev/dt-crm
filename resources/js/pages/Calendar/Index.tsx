@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Head, router, usePage } from "@inertiajs/react";
+import { Head, router, usePage, usePoll } from "@inertiajs/react";
 import {
     Badge,
     Button,
@@ -66,6 +66,9 @@ export default function CalendarIndex() {
     } = usePage<CalendarPageProps>().props;
 
     const isManager = auth.user?.role !== "sales";
+    usePoll(30_000, { only: ["tasks", "events", "summary", "assignees"] }, {
+        autoStart: isManager, background: "pause",
+    });
 
     // Current anchor date
     const [currentDate, setCurrentDate] = useState<dayjs.Dayjs>(() =>

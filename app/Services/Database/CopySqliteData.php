@@ -17,7 +17,8 @@ class CopySqliteData
         'users', 'password_reset_tokens', 'sessions', 'cache', 'cache_locks',
         'jobs', 'job_batches', 'failed_jobs', 'company_settings', 'sapo_connections', 'leads', 'sapo_products', 'customers', 'plants',
         'contacts', 'tags', 'customer_tag', 'customer_owner_histories',
-        'audit_logs', 'care_tasks', 'customer_notes',
+        'audit_logs', 'care_tasks', 'customer_notes', 'zalo_oa_connections',
+        'broadcast_campaigns', 'broadcast_articles', 'broadcast_recipients',
     ];
 
     /** @return array<string, int> */

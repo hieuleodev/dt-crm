@@ -220,7 +220,7 @@ export default function MonthView({
                                                     }}
                                                     title={`${dueTime.format("HH:mm")} · ${
                                                         task.title
-                                                    }${task.reference ? ` (${task.reference.label})` : ""}`}
+                                                    } · ${task.assignee}${task.reference ? ` (${task.reference.label})` : ""}`}
                                                 >
                                                     <span
                                                         className="crm-cal-chip__time"
@@ -231,6 +231,7 @@ export default function MonthView({
                                                     <span className="crm-cal-chip__title">
                                                         {task.title}
                                                     </span>
+                                                    <span className="crm-cal-chip__assignee">{task.assignee}</span>
                                                 </button>
                                             );
                                         })}

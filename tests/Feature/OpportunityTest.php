@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Services\Customer\SaveCustomer;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use PHPUnit\Framework\Attributes\TestWith;
 use Tests\TestCase;
 
 class OpportunityTest extends TestCase
@@ -522,6 +523,74 @@ class OpportunityTest extends TestCase
         $this->get(route('customers.show', $customer))->assertOk()->assertInertia(fn ($page) => $page
             ->has('opportunities.0.products', 2)
             ->where('opportunities.0.products.1.name', 'Safety glasses'));
+    }
+
+    public function test_sales_can_customize_product_names_and_prices_without_changing_the_sapo_catalog(): void
+    {
+        $sales = User::factory()->create(['role' => UserRole::Sales, 'is_active' => true]);
+        $product = SapoProduct::create([
+            'sapo_product_id' => 100, 'sapo_variant_id' => 101,
+            'product_name' => 'Găng tay Sapo', 'sku' => 'GT-01',
+            'unit_price' => '1200.10', 'synced_at' => now(),
+        ]);
+        $details = [
+            'title' => 'Đặt găng tay', 'contact_name' => 'Người mua',
+            'email' => 'buyer@example.test', 'stage' => 'qualified',
+        ];
+        $row = ['key' => '101', 'name' => 'Găng tay theo yêu cầu', 'quantity' => '2', 'unit_price' => '1500.25'];
+
+        $this->actingAs($sales)->post(route('leads.store'), [
+            ...$details, 'products' => [$row],
+        ])->assertSessionHasNoErrors();
+
+        $lead = Lead::sole();
+        $this->assertSame('Găng tay theo yêu cầu', $lead->products[0]['name']);
+        $this->assertDatabaseHas('leads', [
+            'id' => $lead->id, 'requested_product' => 'Găng tay theo yêu cầu',
+            'requested_unit_price' => '1500.25', 'estimated_value' => '3000.50',
+        ]);
+
+        $row['name'] = 'Găng tay đã điều chỉnh';
+        $row['unit_price'] = '1600.50';
+        $this->put(route('leads.update', $lead), [
+            ...$details, 'products' => [$row],
+        ])->assertSessionHasNoErrors();
+        $this->assertSame('Găng tay đã điều chỉnh', $lead->refresh()->products[0]['name']);
+        $this->assertSame('3201.00', $lead->estimated_value);
+
+        $row['name'] = 'Găng tay chốt báo giá';
+        $row['unit_price'] = '1700.75';
+        $this->post(route('leads.convert', $lead), ['products' => [$row]])->assertSessionHasNoErrors();
+
+        $this->assertSame('Găng tay chốt báo giá', $lead->refresh()->products[0]['name']);
+        $this->assertDatabaseHas('leads', [
+            'id' => $lead->id, 'kind' => 'opportunity', 'sapo_variant_id' => 101,
+            'requested_product' => 'Găng tay chốt báo giá',
+            'requested_unit_price' => '1700.75', 'estimated_value' => '3401.50',
+        ]);
+        $this->assertDatabaseHas('sapo_products', [
+            'id' => $product->id, 'product_name' => 'Găng tay Sapo',
+            'sku' => 'GT-01', 'unit_price' => '1200.10',
+        ]);
+    }
+
+    #[TestWith(['', 'Vui lòng nhập tên sản phẩm.'])]
+    #[TestWith([123, 'Tên sản phẩm không đúng định dạng.'])]
+    public function test_product_lines_reject_invalid_custom_names(mixed $name, string $message): void
+    {
+        $sales = User::factory()->create(['role' => UserRole::Sales, 'is_active' => true]);
+        SapoProduct::create([
+            'sapo_product_id' => 100, 'sapo_variant_id' => 101,
+            'product_name' => 'Găng tay Sapo', 'unit_price' => '1200.10', 'synced_at' => now(),
+        ]);
+
+        $this->actingAs($sales)->post(route('leads.store'), [
+            'title' => 'Đặt găng tay', 'contact_name' => 'Người mua',
+            'email' => 'buyer@example.test', 'stage' => 'qualified',
+            'products' => [['key' => '101', 'name' => $name, 'quantity' => '1', 'unit_price' => '1200.10']],
+        ])->assertSessionHasErrors(['products.0.name' => $message]);
+
+        $this->assertDatabaseCount('leads', 0);
     }
 
     public function test_product_lines_require_positive_integer_quantities(): void
