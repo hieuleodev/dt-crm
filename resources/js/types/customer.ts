@@ -1,4 +1,5 @@
 import type { Option } from "@/types";
+import type { LeadProduct } from "@/types/lead-product";
 
 export interface CustomerOptions {
     companyTypes: Option[];
@@ -22,6 +23,9 @@ export interface OwnerOption {
 }
 
 export interface CustomerRow {
+    founded_date: string | null;
+    successful_orders_count: number;
+    purchase_classification: Option;
     id: number;
     code: string;
     name: string;
@@ -59,6 +63,7 @@ export interface CustomerFormData {
     industrial_zone: string | null;
     industry: string | null;
     industry_detail: string | null;
+    founded_date: string | null;
     employee_count: number | null;
     ppe_budget_estimate: number | null;
     current_suppliers: string | null;
@@ -81,6 +86,8 @@ export interface CustomerFormData {
 }
 
 export interface CustomerDetail extends CustomerFormData {
+    successful_orders_count: number;
+    purchase_classification: Option;
     id: number;
     owner: OwnerOption | null;
     creator: string | null;
@@ -129,6 +136,10 @@ export interface PlantItem {
 export interface CustomerOpportunityItem {
     id: number;
     title: string;
+    products: LeadProduct[];
+    requested_product?: string | null;
+    requested_quantity?: string | null;
+    requested_unit_price?: string | null;
     contact_name: string;
     phone: string | null;
     email: string | null;
@@ -156,9 +167,22 @@ export interface AuditItem {
     event: "created" | "updated" | "deleted" | string;
     subject: string;
     user: string;
+    task_title?: string | null;
     old: Record<string, unknown> | null;
     new: Record<string, unknown> | null;
     at: string | null;
+}
+
+export interface CustomerTaskHistoryItem {
+    id: number;
+    title: string;
+    type_label: string;
+    status: "completed" | "cancelled";
+    status_label: string;
+    owner: string | null;
+    opportunity: string | null;
+    result: string | null;
+    closed_at: string | null;
 }
 
 export interface DuplicateMatch {
@@ -178,6 +202,7 @@ export type CustomerBasicFormData = Pick<
     | "address"
     | "company_type"
     | "industry"
+    | "founded_date"
     | "status"
     | "notes"
 >;

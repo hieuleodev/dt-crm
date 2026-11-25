@@ -1,5 +1,8 @@
 import type { TaskRow, TaskOptions, TaskAssignee, TaskReference } from "@/types/task";
 import type { PageProps } from "@/types";
+import type { UpcomingEvent } from "@/components/workbench/UpcomingEventsCard";
+
+export type { UpcomingEvent };
 
 export type CalendarViewType = "month" | "week" | "day" | "agenda";
 
@@ -20,10 +23,12 @@ export interface CalendarSummary {
     open: number;
     completed: number;
     overdue: number;
+    events_count?: number;
 }
 
 export interface CalendarPageProps extends PageProps {
     tasks: TaskRow[];
+    events?: UpcomingEvent[];
     filters: CalendarFilters;
     summary: CalendarSummary;
     options: TaskOptions;

@@ -4,8 +4,27 @@ export interface AuthUser {
     id: number;
     name: string;
     email: string;
+    phone?: string | null;
     role: UserRole;
     roleLabel: string;
+}
+
+export interface RepurchaseNotificationItem {
+    id: number;
+    title: string;
+    company: string;
+    stage: "won" | "proposal";
+    stage_label: string;
+    days_elapsed: number;
+    status: "due" | "overdue" | "scheduled_due";
+}
+
+export interface RepurchaseNotificationsSummary {
+    due_count: number;
+    overdue_count: number;
+    scheduled_due_count: number;
+    total_count: number;
+    items: RepurchaseNotificationItem[];
 }
 
 export interface PageProps {
@@ -20,6 +39,7 @@ export interface PageProps {
             total: number;
         } | null;
     };
+    repurchaseNotifications?: RepurchaseNotificationsSummary | null;
     [key: string]: unknown;
 }
 

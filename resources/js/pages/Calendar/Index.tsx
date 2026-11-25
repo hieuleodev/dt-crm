@@ -17,6 +17,7 @@ import {
     CheckCircleOutlined,
     ClockCircleOutlined,
     FilterOutlined,
+    GiftOutlined,
     LeftOutlined,
     PlusOutlined,
     RightOutlined,
@@ -31,8 +32,9 @@ import AppLayout from "@/layouts/AppLayout";
 import TaskModal from "@/components/tasks/TaskModal";
 import TaskStatusModal from "@/components/tasks/TaskStatusModal";
 import type { TaskStatus } from "@/components/tasks/TaskStatusModal";
-import type { TaskRow } from "@/types/task";
+import type { TaskReference, TaskRow } from "@/types/task";
 import AgendaView from "./AgendaView";
+import CalendarEventModal from "./CalendarEventModal";
 import DayEventsModal from "./DayEventsModal";
 import DayView from "./DayView";
 import EventDetailModal from "./EventDetailModal";
@@ -45,6 +47,7 @@ import {
     type CalendarFilters,
     type CalendarPageProps,
     type CalendarViewType,
+    type UpcomingEvent,
 } from "./types";
 
 dayjs.extend(utc);
@@ -54,6 +57,7 @@ dayjs.extend(isoWeek);
 export default function CalendarIndex() {
     const {
         tasks,
+        events = [],
         filters,
         summary,
         options,
@@ -82,7 +86,17 @@ export default function CalendarIndex() {
         open: boolean;
         task: TaskRow | null;
         initialDueAt?: dayjs.Dayjs | null;
-    }>({ open: false, task: null, initialDueAt: null });
+        initialTitle?: string | null;
+        initialReference?: TaskReference | null;
+        initialType?: string | null;
+    }>({
+        open: false,
+        task: null,
+        initialDueAt: null,
+        initialTitle: null,
+        initialReference: null,
+        initialType: null,
+    });
 
     const [statusModal, setStatusModal] = useState<{
         task: TaskRow | null;
@@ -90,11 +104,13 @@ export default function CalendarIndex() {
     }>({ task: null, status: "pending" });
 
     const [detailTask, setDetailTask] = useState<TaskRow | null>(null);
+    const [selectedEvent, setSelectedEvent] = useState<UpcomingEvent | null>(null);
 
     const [dayModal, setDayModal] = useState<{
         date: dayjs.Dayjs | null;
         tasks: TaskRow[];
-    }>({ date: null, tasks: [] });
+        events: UpcomingEvent[];
+    }>({ date: null, tasks: [], events: [] });
 
     // Sync filters from server
     useEffect(() => {
@@ -202,6 +218,19 @@ export default function CalendarIndex() {
             open: true,
             task,
             initialDueAt: dayjs(task.due_at).tz(TIMEZONE),
+        });
+    }
+
+    function handleCreateTaskFromEvent(suggested: UpcomingEvent["suggested_task"]) {
+        setEditor({
+            open: true,
+            task: null,
+            initialTitle: suggested.title,
+            initialReference: suggested.reference
+                ? { value: suggested.reference, label: suggested.title }
+                : null,
+            initialDueAt: dayjs(suggested.due_at).tz(TIMEZONE),
+            initialType: suggested.type,
         });
     }
 
@@ -334,9 +363,36 @@ export default function CalendarIndex() {
                         <strong style={{ color: "#059669" }}>{summary.completed}</strong>
                     </div>
 
-                    {/* Type color indicators */}
+                    {(summary.events_count ?? 0) > 0 && (
+                        <div
+                            className="crm-cal-stat-chip"
+                            style={{ background: "#faf5ff", borderColor: "#e9d5ff" }}
+                        >
+                            <GiftOutlined style={{ color: "#7c3aed" }} />
+                            <span>Sự kiện & Ngày lễ:</span>
+                            <strong style={{ color: "#7c3aed" }}>
+                                {summary.events_count}
+                            </strong>
+                        </div>
+                    )}
+
+                    {/* Type color indicators & events legend */}
                     <div className="crm-cal-legend">
-                        {Object.entries(TYPE_CONFIG).slice(0, 5).map(([key, style]) => (
+                        <span className="crm-cal-legend-item">
+                            <span
+                                className="crm-cal-legend-dot"
+                                style={{ background: "#7c3aed" }}
+                            />
+                            <span>🏢 Kỷ niệm thành lập</span>
+                        </span>
+                        <span className="crm-cal-legend-item">
+                            <span
+                                className="crm-cal-legend-dot"
+                                style={{ background: "#ea580c" }}
+                            />
+                            <span>🎈 Ngày lễ</span>
+                        </span>
+                        {Object.entries(TYPE_CONFIG).slice(0, 3).map(([key, style]) => (
                             <span key={key} className="crm-cal-legend-item">
                                 <span
                                     className="crm-cal-legend-dot"
@@ -354,10 +410,12 @@ export default function CalendarIndex() {
                         <MonthView
                             currentDate={currentDate}
                             tasks={tasks}
+                            events={events}
                             onSelectTask={(task) => setDetailTask(task)}
+                            onSelectEvent={(event) => setSelectedEvent(event)}
                             onCreateOnDate={isManager ? (date) => openCreate(date) : undefined}
-                            onOpenDayModal={(date, dayTasks) =>
-                                setDayModal({ date, tasks: dayTasks })
+                            onOpenDayModal={(date, dayTasks, dayEvents) =>
+                                setDayModal({ date, tasks: dayTasks, events: dayEvents })
                             }
                         />
                     )}
@@ -366,7 +424,9 @@ export default function CalendarIndex() {
                         <WeekView
                             currentDate={currentDate}
                             tasks={tasks}
+                            events={events}
                             onSelectTask={(task) => setDetailTask(task)}
+                            onSelectEvent={(event) => setSelectedEvent(event)}
                             onCreateOnDate={isManager ? (date) => openCreate(date) : undefined}
                         />
                     )}
@@ -375,7 +435,9 @@ export default function CalendarIndex() {
                         <DayView
                             currentDate={currentDate}
                             tasks={tasks}
+                            events={events}
                             onSelectTask={(task) => setDetailTask(task)}
+                            onSelectEvent={(event) => setSelectedEvent(event)}
                             onCreateOnDate={isManager ? (date) => openCreate(date) : undefined}
                         />
                     )}
@@ -384,8 +446,10 @@ export default function CalendarIndex() {
                     {view === "agenda" && (
                         <AgendaView
                             tasks={tasks}
+                            events={events}
                             options={options}
                             onSelectTask={(task) => setDetailTask(task)}
+                            onSelectEvent={(event) => setSelectedEvent(event)}
                             onCreateOnDate={isManager ? (date) => openCreate(date) : undefined}
                             onEdit={isManager ? (task) => openEdit(task) : undefined}
                             onChangeStatus={(task, nextStatus) =>
@@ -396,7 +460,7 @@ export default function CalendarIndex() {
                 </Card>
             </div>
 
-            {/* Event Detail Modal (Google Calendar style) */}
+            {/* Event Detail Modal (Google Calendar style for Tasks) */}
             <EventDetailModal
                 task={detailTask}
                 open={detailTask !== null}
@@ -407,30 +471,48 @@ export default function CalendarIndex() {
                 onChangeStatus={(task, nextStatus) => openStatusChange(task, nextStatus)}
             />
 
+            {/* Calendar Event Modal (for Company Anniversaries and Holidays) */}
+            <CalendarEventModal
+                event={selectedEvent}
+                onClose={() => setSelectedEvent(null)}
+                onCreateTask={handleCreateTaskFromEvent}
+            />
+
             {/* Month View: More Events Popover/Modal */}
             <DayEventsModal
                 date={dayModal.date}
                 open={dayModal.date !== null}
                 tasks={dayModal.tasks}
+                events={dayModal.events}
                 options={options}
-                onClose={() => setDayModal({ date: null, tasks: [] })}
+                onClose={() => setDayModal({ date: null, tasks: [], events: [] })}
                 onSelectTask={(task) => setDetailTask(task)}
+                onSelectEvent={(event) => setSelectedEvent(event)}
                 onCreateOnDate={isManager ? (date) => openCreate(date) : undefined}
             />
 
             {/* Create/Edit Task Modal */}
-            {isManager && (
-                <TaskModal
-                    open={editor.open}
-                    task={editor.task}
-                    options={options}
-                    assignees={assignees}
-                    currentUserId={auth.user!.id}
-                    initialReference={null}
-                    initialDueAt={editor.initialDueAt}
-                    onClose={() => setEditor({ open: false, task: null, initialDueAt: null })}
-                />
-            )}
+            <TaskModal
+                open={editor.open}
+                task={editor.task}
+                options={options}
+                assignees={assignees}
+                currentUserId={auth.user!.id}
+                initialReference={editor.initialReference ?? null}
+                initialDueAt={editor.initialDueAt}
+                initialTitle={editor.initialTitle}
+                initialType={editor.initialType}
+                onClose={() =>
+                    setEditor({
+                        open: false,
+                        task: null,
+                        initialDueAt: null,
+                        initialTitle: null,
+                        initialReference: null,
+                        initialType: null,
+                    })
+                }
+            />
 
             {/* Task Status Transition Modal */}
             <TaskStatusModal

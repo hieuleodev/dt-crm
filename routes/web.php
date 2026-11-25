@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Care\CalendarController;
+use App\Http\Controllers\Care\EventController;
 use App\Http\Controllers\Care\TaskController;
 use App\Http\Controllers\Care\WorkbenchController;
 use App\Http\Controllers\Customer\ContactController;
@@ -10,9 +11,16 @@ use App\Http\Controllers\Customer\CustomerNoteController;
 use App\Http\Controllers\Customer\DuplicateCheckController;
 use App\Http\Controllers\Customer\PlantController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\HistoryController;
 use App\Http\Controllers\ImportController;
 use App\Http\Controllers\LeadController;
 use App\Http\Controllers\OpportunityController;
+use App\Http\Controllers\RepurchaseReminderController;
+use App\Http\Controllers\SapoOAuthController;
+use App\Http\Controllers\SapoProductController;
+use App\Http\Controllers\SettingController;
+use App\Http\Controllers\UserController;
+use App\Http\Controllers\UserManagementController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('guest')->group(function () {
@@ -20,9 +28,23 @@ Route::middleware('guest')->group(function () {
     Route::post('/login', [LoginController::class, 'store'])->middleware('throttle:10,1');
 });
 
+// Callback cần truy cập được khi chưa đăng nhập; controller xác minh state một lần và HMAC trước khi đổi code.
+Route::get('/sapo/oauth/callback', [SapoOAuthController::class, 'callback'])
+    ->middleware('throttle:20,1')
+    ->name('sapo.oauth.callback');
+
 Route::middleware('auth')->group(function () {
     Route::get('/', DashboardController::class)->name('dashboard');
     Route::post('/logout', [LoginController::class, 'destroy'])->name('logout');
+    Route::get('/history', [HistoryController::class, 'index'])->name('history.index');
+
+    // Controller kiểm tra vai trò Admin hoặc Manager cho cả xem danh sách, tạo và sửa tài khoản.
+    Route::get('/users', [UserManagementController::class, 'index'])->name('users.index');
+    Route::post('/users', [UserManagementController::class, 'store'])->name('users.store');
+    Route::put('/users/{managedUser}', [UserManagementController::class, 'update'])->name('users.update');
+    Route::get('/sapo/oauth/install', [SapoOAuthController::class, 'install'])
+        ->middleware('throttle:10,1')
+        ->name('sapo.oauth.install');
 
     // Imports
     Route::get('/imports', [ImportController::class, 'index'])->name('imports.index');
@@ -32,41 +54,70 @@ Route::middleware('auth')->group(function () {
         ->whereIn('format', ['csv', 'xlsx'])
         ->name('imports.template');
 
-    // Lead
-    Route::get('/leads', [LeadController::class, 'index'])->name('leads.index');
-    Route::post('/leads', [LeadController::class, 'store'])->name('leads.store');
-    Route::put('/leads/{lead}', [LeadController::class, 'update'])->name('leads.update');
-    Route::post('/leads/{lead}/convert', [LeadController::class, 'convert'])->name('leads.convert');
+    // Chặn quyền tại route phía máy chủ; ẩn menu ở giao diện không thay thế được bước kiểm tra này.
+    Route::middleware('work.permission:leads')->group(function () {
+        Route::get('/leads', [LeadController::class, 'index'])->name('leads.index');
+        Route::get('/leads/customer-options', [LeadController::class, 'customerOptions'])->name('leads.customer-options');
+        Route::post('/leads', [LeadController::class, 'store'])->name('leads.store');
+        Route::put('/leads/{lead}', [LeadController::class, 'update'])->name('leads.update');
+        Route::post('/leads/{lead}/convert', [LeadController::class, 'convert'])->name('leads.convert');
+    });
 
-    // Cơ hội kinh doanh
-    Route::get('/opportunities', [OpportunityController::class, 'index'])->name('opportunities.index');
-    Route::post('/opportunities', [OpportunityController::class, 'store'])->name('opportunities.store');
-    Route::put('/opportunities/{opportunity}', [OpportunityController::class, 'update'])->whereNumber('opportunity')->name('opportunities.update');
-    Route::delete('/opportunities/{opportunity}', [OpportunityController::class, 'destroy'])->whereNumber('opportunity')->name('opportunities.destroy');
-    Route::patch('/opportunities/{opportunity}/stage', [OpportunityController::class, 'updateStage'])->whereNumber('opportunity')->name('opportunities.stage');
-    Route::post('/opportunities/{opportunity}/convert-customer', [OpportunityController::class, 'convertToCustomer'])->whereNumber('opportunity')->name('opportunities.convert-customer');
+    Route::middleware('work.permission:opportunities')->group(function () {
+        Route::get('/opportunities', [OpportunityController::class, 'index'])->name('opportunities.index');
+        Route::post('/opportunities', [OpportunityController::class, 'store'])->name('opportunities.store');
+        Route::put('/opportunities/{opportunity}', [OpportunityController::class, 'update'])->whereNumber('opportunity')->name('opportunities.update');
+        Route::delete('/opportunities/{opportunity}', [OpportunityController::class, 'destroy'])->whereNumber('opportunity')->name('opportunities.destroy');
+        Route::patch('/opportunities/{opportunity}/stage', [OpportunityController::class, 'updateStage'])->whereNumber('opportunity')->name('opportunities.stage');
+        Route::post('/opportunities/{opportunity}/convert-customer', [OpportunityController::class, 'convertToCustomer'])->whereNumber('opportunity')->name('opportunities.convert-customer');
+    });
 
-    // Khách hàng
-    Route::get('/customers/check-duplicates', DuplicateCheckController::class)->name('customers.check-duplicates');
-    Route::resource('customers', CustomerController::class);
-    Route::post('/customers/{customer}/reassign', [CustomerController::class, 'reassign'])->name('customers.reassign');
-    Route::resource('customers.contacts', ContactController::class)->only(['store', 'update', 'destroy'])->scoped();
-    Route::resource('customers.plants', PlantController::class)->only(['store', 'update', 'destroy'])->scoped();
+    // Nhắc nhở mua lại (15-30 ngày từ đợt báo giá & mua bán thành công)
+    Route::get('/repurchase-reminders', [RepurchaseReminderController::class, 'index'])->name('repurchase-reminders.index');
+    Route::post('/repurchase-reminders/{opportunity}/schedule', [RepurchaseReminderController::class, 'schedule'])->whereNumber('opportunity')->name('repurchase-reminders.schedule');
+    Route::post('/repurchase-reminders/{opportunity}/snooze', [RepurchaseReminderController::class, 'snooze'])->whereNumber('opportunity')->name('repurchase-reminders.snooze');
+    Route::post('/repurchase-reminders/{opportunity}/complete', [RepurchaseReminderController::class, 'complete'])->whereNumber('opportunity')->name('repurchase-reminders.complete');
 
-    // Tasks
-    Route::get('/tasks/references', [TaskController::class, 'references'])->name('tasks.references');
-    Route::get('/tasks', [TaskController::class, 'index'])->name('tasks.index');
-    Route::post('/tasks', [TaskController::class, 'store'])->name('tasks.store');
-    Route::put('/tasks/{task}', [TaskController::class, 'update'])->whereNumber('task')->name('tasks.update');
-    Route::patch('/tasks/{task}/status', [TaskController::class, 'status'])->whereNumber('task')->name('tasks.status');
+    Route::middleware('work.permission:customers')->group(function () {
+        Route::get('/customers/check-duplicates', DuplicateCheckController::class)->name('customers.check-duplicates');
+        Route::resource('customers', CustomerController::class);
+        Route::post('/customers/{customer}/reassign', [CustomerController::class, 'reassign'])->name('customers.reassign');
+        Route::resource('customers.contacts', ContactController::class)->only(['store', 'update', 'destroy'])->scoped();
+        Route::resource('customers.plants', PlantController::class)->only(['store', 'update', 'destroy'])->scoped();
+        Route::get('/customers/{customer}/notes', [CustomerNoteController::class, 'index'])->name('customers.notes.index');
+        Route::post('/customers/{customer}/notes', [CustomerNoteController::class, 'store'])->name('customers.notes.store');
+    });
 
-    // Calendar
-    Route::get('/calendar', [CalendarController::class, 'index'])->name('calendar.index');
+    Route::middleware('work.permission:tasks')->group(function () {
+        Route::get('/tasks/references', [TaskController::class, 'references'])->name('tasks.references');
+        Route::get('/tasks', [TaskController::class, 'index'])->name('tasks.index');
+        Route::post('/tasks', [TaskController::class, 'store'])->name('tasks.store');
+        Route::put('/tasks/{task}', [TaskController::class, 'update'])->whereNumber('task')->name('tasks.update');
+        Route::patch('/tasks/{task}/status', [TaskController::class, 'status'])->whereNumber('task')->name('tasks.status');
+        Route::get('/workbench', WorkbenchController::class)->name('workbench');
+    });
 
-    // Today tasks / Workbench
-    Route::get('/workbench', WorkbenchController::class)->name('workbench');
+    Route::middleware('work.permission:calendar')->group(function () {
+        Route::get('/calendar', [CalendarController::class, 'index'])->name('calendar.index');
+    });
 
-    // Notes customer
-    Route::get('/customers/{customer}/notes', [CustomerNoteController::class, 'index'])->name('customers.notes.index');
-    Route::post('/customers/{customer}/notes', [CustomerNoteController::class, 'store'])->name('customers.notes.store');
+    // Events / Sự kiện
+    Route::get('/events', [EventController::class, 'index'])->name('events.index');
+
+    // Settings & Profile
+    Route::get('/settings', [SettingController::class, 'index'])->name('settings.index');
+    Route::put('/settings/profile', [SettingController::class, 'updateProfile'])->name('settings.profile.update');
+    Route::put('/settings/password', [SettingController::class, 'updatePassword'])->name('settings.password.update');
+    Route::match(['put', 'post'], '/settings/company', [SettingController::class, 'updateCompany'])->name('settings.company.update');
+
+    // Users Management (Settings quick actions)
+    Route::patch('/users/{user}/status', [UserController::class, 'toggleStatus'])->whereNumber('user')->name('users.status');
+    Route::post('/users/{user}/reset-password', [UserController::class, 'resetPassword'])->whereNumber('user')->name('users.reset-password');
+
+    // Người có quyền Lead được tìm catalog; controller chỉ cho Admin/Manager gọi API đồng bộ.
+    Route::middleware('work.permission:leads')->group(function () {
+        Route::get('/sapo/products', [SapoProductController::class, 'index'])->name('sapo.products.index');
+        Route::get('/sapo/products/sync/status', [SapoProductController::class, 'syncStatus'])->name('sapo.products.sync-status');
+        Route::post('/sapo/products/sync', [SapoProductController::class, 'sync'])->name('sapo.products.sync');
+    });
 });

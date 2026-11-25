@@ -1,4 +1,5 @@
 <?php
+
 return [
     'accepted' => ':Attribute phải được chấp nhận.',
     'array' => ':Attribute phải là danh sách.',

@@ -28,7 +28,8 @@ interface TeamMember {
 interface Props extends PageProps {
     canAssign: boolean;
     filters: { assignee_id: number | null };
-    summary: { customers: number; leads: number; open: number; today: number; overdue: number; completedToday: number };
+    summary: { customers: number; leadRecords: number; open: number; today: number; overdue: number; completedToday: number };
+    leadListUrl: string | null;
     statusCounts: { status: string; label: string; total: number }[];
     upcomingTasks: TaskRow[];
     team: TeamMember[];
@@ -37,9 +38,11 @@ interface Props extends PageProps {
 }
 
 export default function Index() {
-    const { auth, canAssign, filters, summary, statusCounts, upcomingTasks, team, assignees, options } = usePage<Props>().props;
+    const { auth, canAssign, filters, summary, leadListUrl, statusCounts, upcomingTasks, team, assignees, options } = usePage<Props>().props;
     const [editor, setEditor] = useState<{ assigneeId?: number } | null>(null);
     const [filtering, setFiltering] = useState(false);
+    // Dữ liệu nhiệm vụ gửi xuống đã được máy chủ lọc theo người xem.
+    const canSeeTasks = auth.user !== null;
     const taskUrl = (bucket = "open", assigneeId = filters.assignee_id) =>
         `/tasks?bucket=${bucket}${assigneeId ? `&assignee_id=${assigneeId}` : ""}`;
     const totalTasks = statusCounts.reduce((total, item) => total + item.total, 0);
@@ -49,7 +52,7 @@ export default function Index() {
     const percent = actionable ? Math.round(completed / actionable * 100) : 0;
     const metrics = [
         { key: "customers", label: canAssign ? "Khách hàng" : "Khách hàng phụ trách", value: summary.customers, icon: <TeamOutlined />, tone: "blue", href: "/customers" },
-        { key: "leads", label: canAssign ? "Lead" : "Lead phụ trách", value: summary.leads, icon: <SolutionOutlined />, tone: "blue", href: "/leads?kind=lead" },
+        { key: "leads", label: canAssign ? "Lead & Cơ hội" : "Lead & Cơ hội phụ trách", value: summary.leadRecords, icon: <SolutionOutlined />, tone: "blue", href: leadListUrl },
         { key: "open", label: canAssign ? "Việc chưa hoàn thành" : "Nhiệm vụ được giao", value: summary.open, icon: <UnorderedListOutlined />, tone: "neutral", href: taskUrl() },
         { key: "today", label: "Việc đến hạn hôm nay", value: summary.today, icon: <ClockCircleOutlined />, tone: "amber", href: taskUrl("today") },
         { key: "overdue", label: "Việc quá hạn", value: summary.overdue, icon: <WarningOutlined />, tone: "red", href: taskUrl("overdue") },
@@ -89,6 +92,7 @@ export default function Index() {
                     </Card>)}
                 </div>
 
+                {canSeeTasks && (
                 <div className="crm-dashboard__panels">
                     <Card title={canAssign ? "Việc cần ưu tiên" : "Công việc được giao"} extra={<Link href={taskUrl()}>Xem tất cả</Link>}>
                         {canAssign && <p className="crm-dashboard__hint">Các việc chưa hoàn thành, sắp xếp theo hạn xử lý gần nhất; việc quá hạn đứng trước.</p>}
@@ -110,6 +114,7 @@ export default function Index() {
                         <ul className="crm-dashboard__statuses">{statusCounts.map((item) => <li key={item.status}><span>{item.label}</span><strong>{item.total}</strong></li>)}</ul>
                     </Card>
                 </div>
+                )}
 
                 {canAssign && <Card title="Phân công và khối lượng công việc" extra={<Tag>Toàn bộ đội ngũ đang hoạt động</Tag>}>
                     <p className="crm-dashboard__hint">Chọn “Giao việc” để tạo nhiệm vụ cho đúng người. Cột đang thực hiện và quá hạn là các phần của số việc chưa hoàn thành.</p>

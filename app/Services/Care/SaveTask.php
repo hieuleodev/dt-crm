@@ -2,6 +2,7 @@
 
 namespace App\Services\Care;
 
+use App\Enums\Staff\UserRole;
 use App\Models\Customer;
 use App\Models\Lead;
 use App\Models\Task;
@@ -39,9 +40,14 @@ class SaveTask
                 }
             }
 
-            $assignee = User::query()
-                ->where('is_active', true)
-                ->findOrFail($data['assignee_id']);
+            // Kiểm tra lại người nhận tại lúc lưu để áp dụng quy tắc Sales cho mọi luồng tạo nhiệm vụ.
+            $assignee = User::query()->find($data['assignee_id']);
+
+            if (! $assignee || ! $assignee->is_active || $assignee->role !== UserRole::Sales) {
+                throw ValidationException::withMessages([
+                    'assignee_id' => 'Chỉ có thể giao việc cho nhân viên kinh doanh đang hoạt động.',
+                ]);
+            }
 
             if (! $actor->isManager() && $assignee->id !== $actor->id) {
                 abort(403);
@@ -57,7 +63,6 @@ class SaveTask
                     ? Customer::query()
                     : Lead::query();
 
-                // Người thực hiện phải truy cập được hồ sơ gắn với nhiệm vụ.
                 $target = $query
                     ->visibleTo($actor)
                     ->lockForUpdate()
@@ -69,12 +74,12 @@ class SaveTask
                     ]);
                 }
 
-                if (
-                    ! $assignee->isManager()
-                    && $target->owner_id !== $assignee->id
-                ) {
+                // Dùng cùng phạm vi quyền với danh sách hồ sơ để người nhận mở được hồ sơ từ nhiệm vụ.
+                if (! $target->newQuery()->visibleTo($assignee)->whereKey($target->id)->exists()) {
                     throw ValidationException::withMessages([
-                        'assignee_id' => 'Người thực hiện phải có quyền xem hồ sơ liên quan.',
+                        'assignee_id' => $target instanceof Lead && $target->kind === 'lead'
+                            ? 'Hãy chọn người phụ trách hiển thị trên Lead. Nếu Lead thuộc khách hàng đã có hồ sơ, hãy liên kết hồ sơ đó trước khi giao việc.'
+                            : 'Người thực hiện phải có quyền xem hồ sơ liên quan.',
                     ]);
                 }
 

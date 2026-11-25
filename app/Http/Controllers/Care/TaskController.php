@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Care;
 
 use App\Data\Care\TaskData;
+use App\Enums\Staff\UserRole;
 use App\Http\Controllers\Controller;
 use App\Models\Customer;
 use App\Models\Lead;
@@ -173,9 +174,11 @@ class TaskController extends Controller
                 'priorities' => Task::PRIORITIES,
                 'statuses' => Task::STATUSES,
             ],
+            // Danh sách trong form giao việc dùng cùng điều kiện tài khoản với phần xác thực bên dưới.
             'assignees' => $user->isManager()
                 ? User::query()
                     ->where('is_active', true)
+                    ->where('role', UserRole::Sales->value)
                     ->orderBy('name')
                     ->get(['id', 'name'])
                 : [$user->only('id', 'name')],
@@ -292,6 +295,7 @@ class TaskController extends Controller
                 'integer',
                 Rule::exists('users', 'id')
                     ->where('is_active', true)
+                    ->where('role', UserRole::Sales->value)
                     ->whereNull('deleted_at'),
                 ...($user->isManager() ? [] : [Rule::in([$user->id])]),
             ],

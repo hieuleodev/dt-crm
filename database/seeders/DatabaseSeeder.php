@@ -19,5 +19,26 @@ class DatabaseSeeder extends Seeder
                 'is_active' => true,
             ],
         );
+
+        // Seed tài khoản Sales theo email để có người nhận việc. Chạy lại sẽ cập nhật dữ liệu mẫu.
+        User::updateOrCreate(
+            ['email' => 'sale1@trangthietbi.vn'],
+            [
+                'name' => 'Nguyễn Văn A',
+                'password' => 'Sale@12345',
+                'role' => UserRole::Sales,
+                'is_active' => true,
+            ],
+        );
+
+        User::updateOrCreate(
+            ['email' => 'sale3@trangthietbi.vn'],
+            [
+                'name' => 'Lê Hoàng Nam',
+                'password' => 'Sale@12345',
+                'role' => UserRole::Sales,
+                'is_active' => true,
+            ],
+        );
     }
 }

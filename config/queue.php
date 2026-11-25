@@ -44,6 +44,16 @@ return [
             'after_commit' => false,
         ],
 
+        // Danh mục lớn có thể mất vài phút. Giữ thời gian giữ job dài hơn timeout của worker Sapo.
+        'sapo' => [
+            'driver' => 'database',
+            'connection' => env('DB_QUEUE_CONNECTION'),
+            'table' => env('DB_QUEUE_TABLE', 'jobs'),
+            'queue' => 'sapo',
+            'retry_after' => 3660,
+            'after_commit' => false,
+        ],
+
         'beanstalkd' => [
             'driver' => 'beanstalkd',
             'host' => env('BEANSTALKD_QUEUE_HOST', 'localhost'),

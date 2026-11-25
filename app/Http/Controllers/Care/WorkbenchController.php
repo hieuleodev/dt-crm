@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Care;
 
+use App\Enums\Staff\UserRole;
 use App\Http\Controllers\Controller;
 use App\Models\Task;
 use App\Models\User;
@@ -57,9 +58,11 @@ class WorkbenchController extends Controller
                 'statuses' => Task::STATUSES,
             ],
 
+            // Form giao việc nhanh dùng danh sách Sales đang hoạt động khi người giao là quản lý.
             'assignees' => $user->isManager()
                 ? User::query()
                     ->where('is_active', true)
+                    ->where('role', UserRole::Sales->value)
                     ->orderBy('name')
                     ->get(['id', 'name'])
                 : [$user->only('id', 'name')],

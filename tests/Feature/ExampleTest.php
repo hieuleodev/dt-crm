@@ -9,7 +9,7 @@ class ExampleTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->withoutVite(); 
+        $this->withoutVite();
     }
 
     public function test_home_requires_login(): void

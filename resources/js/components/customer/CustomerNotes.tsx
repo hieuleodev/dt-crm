@@ -62,6 +62,8 @@ interface Props {
     currentUserId: number;
     canCreate: boolean;
     canCreateReminder: boolean;
+    /** Quyền hiển thị chi tiết nhiệm vụ đi kèm ghi chú. */
+    canViewTasks: boolean;
 }
 
 const formatTime = (value: string) =>
@@ -72,6 +74,7 @@ export default function CustomerNotes({
     currentUserId,
     canCreate,
     canCreateReminder,
+    canViewTasks,
 }: Props) {
     const [page, setPage] = useState(1);
     const [refresh, setRefresh] = useState(0);
@@ -394,7 +397,7 @@ export default function CustomerNotes({
                                     {note.body}
                                 </div>
 
-                                {note.task && (
+                                {canViewTasks && note.task && (
                                     <div className="crm-customer-notes__reminder">
                                         <div className="crm-customer-notes__reminder-heading">
                                             <BellOutlined aria-hidden="true" />
