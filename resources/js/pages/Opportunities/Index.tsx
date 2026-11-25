@@ -5,6 +5,7 @@ import {
     App,
     Button,
     Card,
+    Checkbox,
     Col,
     Empty,
     Form,
@@ -90,6 +91,7 @@ interface Filters {
     q: string;
     stage: string;
     customer_id: number | null;
+    hide_old_closed?: boolean;
 }
 
 interface StageMetric {
@@ -262,6 +264,7 @@ export default function Index({
         if (values.q) query.q = values.q;
         if (values.stage) query.stage = values.stage;
         if (values.customer_id) query.customer_id = values.customer_id;
+        if (values.hide_old_closed) query.hide_old_closed = 1;
 
         router.get("/opportunities", query, {
             preserveState: true,
@@ -339,6 +342,16 @@ export default function Index({
             preserveScroll: true,
             onSuccess: () => setModalOpen(false),
         };
+
+        form.transform((data) => {
+            if (isManager) {
+                return data;
+            }
+
+            const { owner_id: _ignoredOwnerId, ...rest } = data;
+
+            return rest;
+        });
 
         if (editing) {
             form.put(`/opportunities/${editing.id}`, options);
@@ -859,11 +872,31 @@ export default function Index({
                                     q: "",
                                     stage: "",
                                     customer_id: null,
+                                    hide_old_closed: false,
                                 });
                             }}
                         >
                             Xóa bộ lọc
                         </Button>
+
+                        {viewMode === "table" && (
+                            <Checkbox
+                                checked={Boolean(filters.hide_old_closed)}
+                                onChange={(event) => {
+                                    visit({
+                                        hide_old_closed: event.target.checked,
+                                        q: search.trim(),
+                                    });
+                                }}
+                                style={{
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    whiteSpace: "nowrap",
+                                }}
+                            >
+                                Ẩn cơ hội đã chốt &gt; 24h
+                            </Checkbox>
+                        )}
                     </form>
 
                     {viewMode === "kanban" ? (

@@ -45,4 +45,17 @@ return [
         'redirect_uri' => env('SAPO_REDIRECT_URI'),
     ],
 
+    // Cấu hình Zalo Official Account dùng cho gửi Tin nhắn Broadcast / Truyền thông đa bài viết.
+    'zalo_oa' => [
+        'app_id' => env('ZALO_OA_APP_ID'),
+        'app_secret' => env('ZALO_OA_APP_SECRET'),
+        'redirect_uri' => env('ZALO_OA_REDIRECT_URI'),
+        'webhook_secret' => env('ZALO_OA_WEBHOOK_SECRET', env('ZALO_OA_APP_SECRET')),
+        'oa_id' => env('ZALO_OA_ID'),
+        'access_token' => env('ZALO_OA_ACCESS_TOKEN'),
+        'oauth_base_url' => env('ZALO_OA_OAUTH_BASE_URL', 'https://oauth.zaloapp.com/v4/oa'),
+        'api_base_url' => env('ZALO_OA_API_BASE_URL', 'https://openapi.zalo.me/v3.0/oa'),
+        'sandbox' => (bool) env('ZALO_OA_SANDBOX', false),
+    ],
+
 ];

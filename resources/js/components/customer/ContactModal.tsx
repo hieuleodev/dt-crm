@@ -163,8 +163,17 @@ export default function ContactModal({
                         </Form.Item>
                     </Col>
                     <Col xs={24} md={8}>
-                        <Form.Item name="zalo" label="Zalo">
-                            <Input />
+                        <Form.Item name="zalo" label="Zalo (SĐT)">
+                            <Input placeholder="VD: 0912345678" />
+                        </Form.Item>
+                    </Col>
+                    <Col xs={24} md={8}>
+                        <Form.Item
+                            name="zalo_user_id"
+                            label="Zalo OA User ID"
+                            tooltip="Dùng để gửi Tin nhắn Broadcast qua Zalo OA. Có thể nhập thủ công hoặc để Webhook Zalo OA tự động đồng bộ khi khách quan tâm OA."
+                        >
+                            <Input placeholder="Tự động điền khi khách quan tâm OA" />
                         </Form.Item>
                     </Col>
                     <Col xs={24} md={8}>

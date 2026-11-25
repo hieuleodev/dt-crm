@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\BroadcastController;
 use App\Http\Controllers\Care\CalendarController;
 use App\Http\Controllers\Care\EventController;
 use App\Http\Controllers\Care\TaskController;
@@ -21,6 +22,8 @@ use App\Http\Controllers\SapoProductController;
 use App\Http\Controllers\SettingController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\UserManagementController;
+use App\Http\Controllers\ZaloOaOAuthController;
+use App\Http\Controllers\ZaloOaWebhookController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('guest')->group(function () {
@@ -32,6 +35,14 @@ Route::middleware('guest')->group(function () {
 Route::get('/sapo/oauth/callback', [SapoOAuthController::class, 'callback'])
     ->middleware('throttle:20,1')
     ->name('sapo.oauth.callback');
+
+Route::get('/zalo-oa/oauth/callback', [ZaloOaOAuthController::class, 'callback'])
+    ->middleware('throttle:20,1')
+    ->name('zalo-oa.oauth.callback');
+
+Route::post('/webhooks/zalo-oa', [ZaloOaWebhookController::class, 'handle'])
+    ->middleware('throttle:120,1')
+    ->name('webhooks.zalo-oa');
 
 Route::middleware('auth')->group(function () {
     Route::get('/', DashboardController::class)->name('dashboard');
@@ -45,6 +56,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/sapo/oauth/install', [SapoOAuthController::class, 'install'])
         ->middleware('throttle:10,1')
         ->name('sapo.oauth.install');
+    Route::get('/zalo-oa/oauth/install', [ZaloOaOAuthController::class, 'install'])
+        ->middleware('throttle:10,1')
+        ->name('zalo-oa.oauth.install');
 
     // Imports
     Route::get('/imports', [ImportController::class, 'index'])->name('imports.index');
@@ -74,6 +88,7 @@ Route::middleware('auth')->group(function () {
 
     // Nhắc nhở mua lại (15-30 ngày từ đợt báo giá & mua bán thành công)
     Route::get('/repurchase-reminders', [RepurchaseReminderController::class, 'index'])->name('repurchase-reminders.index');
+    Route::post('/repurchase-reminders/broadcast', [BroadcastController::class, 'store'])->name('repurchase-reminders.broadcast.store');
     Route::post('/repurchase-reminders/{opportunity}/schedule', [RepurchaseReminderController::class, 'schedule'])->whereNumber('opportunity')->name('repurchase-reminders.schedule');
     Route::post('/repurchase-reminders/{opportunity}/snooze', [RepurchaseReminderController::class, 'snooze'])->whereNumber('opportunity')->name('repurchase-reminders.snooze');
     Route::post('/repurchase-reminders/{opportunity}/complete', [RepurchaseReminderController::class, 'complete'])->whereNumber('opportunity')->name('repurchase-reminders.complete');

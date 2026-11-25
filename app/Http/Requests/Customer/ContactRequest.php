@@ -27,6 +27,7 @@ class ContactRequest extends FormRequest
             'phone' => ['nullable', 'string', 'max:30'],
             'email' => ['nullable', 'email', 'max:255'],
             'zalo' => ['nullable', 'string', 'max:30'],
+            'zalo_user_id' => ['nullable', 'string', 'max:100'],
             'preferred_channel' => ['nullable', Rule::enum(ContactChannel::class)],
             'language' => ['nullable', Rule::in(['vi', 'en', 'ko', 'zh', 'ja'])],
             'birthday' => ['nullable', 'date'],
@@ -39,6 +40,6 @@ class ContactRequest extends FormRequest
 
     public function attributes(): array
     {
-        return ['full_name' => 'họ tên', 'buying_role' => 'vai trò mua hàng', 'phone' => 'điện thoại', 'plant_id' => 'nhà máy'];
+        return ['full_name' => 'họ tên', 'buying_role' => 'vai trò mua hàng', 'phone' => 'điện thoại', 'plant_id' => 'nhà máy', 'zalo_user_id' => 'Zalo OA User ID'];
     }
 }

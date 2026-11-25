@@ -4,9 +4,13 @@ namespace App\Http\Controllers;
 
 use App\Enums\Customer\LifecycleStage;
 use App\Models\AuditLog;
+use App\Models\BroadcastCampaign;
+use App\Models\BroadcastRecipient;
+use App\Models\Contact;
 use App\Models\Lead;
 use App\Models\Task;
 use App\Models\User;
+use App\Models\ZaloOaConnection;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -38,12 +42,14 @@ class RepurchaseReminderController extends Controller
             ->visibleTo($user)
             ->where('kind', 'opportunity')
             ->whereIn('stage', ['won', 'proposal'])
+            ->select(['id', 'title', 'company', 'customer_id', 'stage', 'converted_at', 'created_at'])
             ->with([
                 'customer:id,code,name',
-                'tasks' => fn ($query) => $query->orderByDesc('id'),
+                'tasks' => fn ($query) => $query
+                    ->select(['id', 'lead_id', 'status', 'due_at'])
+                    ->orderByDesc('id'),
             ])
-            ->orderByDesc('updated_at')
-            ->limit(150)
+            ->orderByDesc('id')
             ->get();
 
         if ($opportunities->isEmpty()) {
@@ -67,7 +73,7 @@ class RepurchaseReminderController extends Controller
 
         foreach ($opportunities as $opp) {
             $rawTimestamp = $stageTimestamps[$opp->id][$opp->stage]
-                ?? $opp->updated_at
+                ?? $opp->converted_at
                 ?? $opp->created_at
                 ?? now();
 
@@ -151,7 +157,9 @@ class RepurchaseReminderController extends Controller
             })
             ->with([
                 'owner:id,name',
-                'customer:id,code,name,phone,email,lifecycle_stage',
+                'customer' => fn ($query) => $query
+                    ->select(['id', 'code', 'name', 'phone', 'email', 'lifecycle_stage'])
+                    ->with('contacts:id,customer_id,full_name,email,zalo,zalo_user_id,is_primary,left_at,marketing_opt_out'),
                 'tasks' => fn ($query) => $query
                     ->with('assignee:id,name')
                     ->orderByDesc('id'),
@@ -161,12 +169,21 @@ class RepurchaseReminderController extends Controller
             ->get();
 
         $stageTimestamps = self::resolveStageTimestampsStatic($opportunities->pluck('id')->all());
+        $latestBroadcastByLead = BroadcastRecipient::query()
+            ->whereIn('lead_id', $opportunities->pluck('id')->all())
+            ->where('status', 'sent')
+            ->with('campaign:id,name,purpose')
+            ->orderByDesc('sent_at')
+            ->orderByDesc('id')
+            ->get()
+            ->unique('lead_id')
+            ->keyBy('lead_id');
         $now = CarbonImmutable::now('Asia/Ho_Chi_Minh');
         $today = $now->startOfDay();
 
-        $allItems = $opportunities->map(function (Lead $opp) use ($stageTimestamps, $today): array {
+        $allItems = $opportunities->map(function (Lead $opp) use ($stageTimestamps, $latestBroadcastByLead, $today): array {
             $rawTimestamp = $stageTimestamps[$opp->id][$opp->stage]
-                ?? $opp->updated_at
+                ?? $opp->converted_at
                 ?? $opp->created_at
                 ?? now();
 
@@ -188,6 +205,23 @@ class RepurchaseReminderController extends Controller
                 $cycleStatus = 'upcoming';
             }
 
+            $activeContacts = ($opp->customer?->contacts ?? collect())
+                ->filter(fn (Contact $c) => $c->left_at === null)
+                ->sortByDesc('is_primary');
+
+            /** @var Contact|null $emailContact */
+            $emailContact = $activeContacts->first(fn (Contact $c) => ! empty($c->email));
+            /** @var Contact|null $zaloContact */
+            $zaloContact = $activeContacts->first(fn (Contact $c) => ! empty($c->zalo_user_id));
+
+            $resolvedEmail = $emailContact?->email ?: ($opp->email ?: $opp->customer?->email);
+            $resolvedZaloUserId = $zaloContact?->zalo_user_id;
+            $emailOptedOut = (bool) ($emailContact?->marketing_opt_out ?? false);
+            $zaloOptedOut = (bool) ($zaloContact?->marketing_opt_out ?? false);
+
+            /** @var BroadcastRecipient|null $lastBroadcast */
+            $lastBroadcast = $latestBroadcastByLead->get($opp->id);
+
             return [
                 'id' => $opp->id,
                 'title' => $opp->title,
@@ -198,7 +232,15 @@ class RepurchaseReminderController extends Controller
                 'customer_code' => $opp->customer?->code,
                 'contact_name' => $opp->contact_name,
                 'phone' => $opp->phone ?: $opp->customer?->phone,
-                'email' => $opp->email ?: $opp->customer?->email,
+                'email' => $resolvedEmail,
+                'zalo_user_id' => $resolvedZaloUserId,
+                'can_email_broadcast' => ! empty($resolvedEmail) && ! $emailOptedOut,
+                'can_zalo_broadcast' => ! empty($resolvedZaloUserId) && ! $zaloOptedOut,
+                'last_broadcast' => $lastBroadcast ? [
+                    'campaign_name' => $lastBroadcast->campaign?->name ?? 'Chiến dịch Broadcast',
+                    'channel' => $lastBroadcast->channel,
+                    'sent_at' => $lastBroadcast->sent_at?->toIso8601String(),
+                ] : null,
                 'estimated_value' => (string) ($opp->estimated_value ?? 0),
                 'owner_id' => $opp->owner_id,
                 'owner_name' => $opp->owner?->name ?? 'Chưa phân công',
@@ -258,6 +300,48 @@ class RepurchaseReminderController extends Controller
                 ->get(['id', 'name'])
             : [$user->only('id', 'name')];
 
+        $recentBroadcasts = BroadcastCampaign::query()
+            ->when(! $user->isManager(), fn ($query) => $query->where('created_by', $user->id))
+            ->with([
+                'creator:id,name',
+                'articles:id,campaign_id,sort_order,title',
+                'recipients:id,campaign_id,channel,recipient_name,recipient_address,status,error_message,sent_at',
+            ])
+            ->orderByDesc('id')
+            ->limit(15)
+            ->get()
+            ->map(fn (BroadcastCampaign $campaign): array => [
+                'id' => $campaign->id,
+                'name' => $campaign->name,
+                'purpose' => $campaign->purpose,
+                'purpose_label' => BroadcastCampaign::PURPOSES[$campaign->purpose] ?? $campaign->purpose,
+                'channels' => $campaign->channels ?? [],
+                'status' => $campaign->status,
+                'status_label' => BroadcastCampaign::STATUSES[$campaign->status] ?? $campaign->status,
+                'creator_name' => $campaign->creator?->name ?? 'Hệ thống',
+                'articles_count' => $campaign->articles->count(),
+                'first_article_title' => $campaign->articles->first()?->title,
+                'total_recipients' => $campaign->total_recipients,
+                'sent_count' => $campaign->sent_count,
+                'failed_count' => $campaign->failed_count,
+                'skipped_count' => $campaign->skipped_count,
+                'scheduled_at' => $campaign->scheduled_at?->toIso8601String(),
+                'sent_at' => $campaign->sent_at?->toIso8601String(),
+                'recipients' => $campaign->recipients->map(fn (BroadcastRecipient $r): array => [
+                    'id' => $r->id,
+                    'channel' => $r->channel,
+                    'recipient_name' => $r->recipient_name,
+                    'recipient_address' => $r->recipient_address,
+                    'status' => $r->status,
+                    'status_label' => BroadcastRecipient::STATUSES[$r->status] ?? $r->status,
+                    'error_message' => $r->error_message,
+                    'sent_at' => $r->sent_at?->toIso8601String(),
+                ])->all(),
+            ])
+            ->all();
+
+        $zaloConnection = ZaloOaConnection::current();
+
         return Inertia::render('RepurchaseReminders/Index', [
             'reminders' => $filteredItems,
             'summary' => $summary,
@@ -271,6 +355,18 @@ class RepurchaseReminderController extends Controller
                 'types' => Task::TYPES,
                 'priorities' => Task::PRIORITIES,
             ],
+            'broadcastConfig' => [
+                'purposes' => BroadcastCampaign::PURPOSES,
+                'channels' => BroadcastCampaign::CHANNELS,
+                'zalo_configured' => $zaloConnection !== null || ! empty(config('services.zalo_oa.access_token')),
+                'zalo_sandbox' => (bool) config('services.zalo_oa.sandbox', false),
+                'zalo_oauth_connected' => $zaloConnection !== null,
+                'zalo_oa_name' => $zaloConnection?->oa_name ?: $zaloConnection?->oa_id,
+                'zalo_token_expires_at' => $zaloConnection?->expires_at?->toIso8601String(),
+                'zalo_oauth_install_url' => route('zalo-oa.oauth.install'),
+                'zalo_webhook_url' => route('webhooks.zalo-oa'),
+            ],
+            'recentBroadcasts' => $recentBroadcasts,
         ]);
     }
 
@@ -449,6 +545,12 @@ class RepurchaseReminderController extends Controller
                 $newOpp = new Lead([
                     'customer_id' => $opportunity->customer_id,
                     'title' => "Đơn mua lại: {$opportunity->title}",
+                    'requested_product' => $opportunity->requested_product,
+                    'sapo_product_id' => $opportunity->sapo_product_id,
+                    'sapo_variant_id' => $opportunity->sapo_variant_id,
+                    'requested_quantity' => $opportunity->requested_quantity,
+                    'requested_unit_price' => $opportunity->requested_unit_price,
+                    'product_lines' => $opportunity->product_lines,
                     'contact_name' => $opportunity->contact_name,
                     'company' => $opportunity->customer?->name ?? $opportunity->company,
                     'email' => $opportunity->email,
@@ -514,9 +616,16 @@ class RepurchaseReminderController extends Controller
         $timestamps = [];
         foreach ($logs as $log) {
             $stage = $log->new_values['stage'] ?? null;
-            if ($stage && $log->created_at) {
-                $timestamps[$log->auditable_id][$stage] = $log->created_at->toIso8601String();
+            if (! $stage || ! $log->created_at) {
+                continue;
             }
+
+            // Giữ mốc đầu tiên khi vào giai đoạn Báo giá để thao tác chuyển qua/lại không làm reset chu kỳ 15-30 ngày.
+            if ($stage === 'proposal' && isset($timestamps[$log->auditable_id][$stage])) {
+                continue;
+            }
+
+            $timestamps[$log->auditable_id][$stage] = $log->created_at->toIso8601String();
         }
 
         return $timestamps;

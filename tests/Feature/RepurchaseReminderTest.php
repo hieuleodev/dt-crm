@@ -257,4 +257,42 @@ class RepurchaseReminderTest extends TestCase
         $this->assertSame(1, Task::query()->where('lead_id', $opp->id)->where('status', 'completed')->count());
         $this->assertSame(1, Task::query()->where('lead_id', $opp->id)->where('status', 'pending')->count());
     }
+
+    public function test_updating_or_moving_another_opportunity_does_not_drop_repurchase_notification_count(): void
+    {
+        $sales = $this->user(UserRole::Sales);
+        $customer = $this->customer($sales);
+
+        // 1 cơ hội cũ đến hạn nhắc (20 ngày trước), xóa log để kiểm tra fallback không dùng updated_at
+        $dueOpp = $this->opportunity($sales, $customer, 'proposal', 20, 'Báo giá 20 ngày trước');
+        AuditLog::query()->where('auditable_id', $dueOpp->id)->delete();
+
+        // 1 cơ hội đang ở giai đoạn Đàm phán
+        $negOpp = $this->opportunity($sales, $customer, 'negotiation', 2, 'Thương vụ đang đàm phán');
+
+        // Ban đầu có 1 thông báo đến hạn
+        $this->actingAs($sales)->get('/repurchase-reminders')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('repurchaseNotifications.due_count', 1)
+                ->where('repurchaseNotifications.total_count', 1)
+            );
+
+        // Chỉnh sửa ghi chú của $dueOpp (làm updated_at nhảy về hiện tại)
+        $dueOpp->timestamps = true;
+        $dueOpp->update(['notes' => 'Cập nhật ghi chú không đổi giai đoạn']);
+
+        // Chuyển $negOpp từ Đàm phán sang Báo giá
+        $this->actingAs($sales)
+            ->patch(route('opportunities.stage', $negOpp), ['stage' => 'proposal'])
+            ->assertRedirect();
+
+        // Thông báo nhắc nhở vẫn phải giữ nguyên là 1 (không bị trừ đi 1)
+        $this->actingAs($sales)->get('/repurchase-reminders')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('repurchaseNotifications.due_count', 1)
+                ->where('repurchaseNotifications.total_count', 1)
+            );
+    }
 }
